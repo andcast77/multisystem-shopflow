@@ -28,7 +28,7 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
-  basePath: '/shopflow',
+  // basePath eliminado - cada módulo tiene su propio dominio en Vercel
   async headers() {
     return [
       {
