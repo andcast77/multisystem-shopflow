@@ -1,59 +1,38 @@
-import { prisma } from '@/lib/prisma'
+import { shopflowApi } from '@/lib/api/client'
 import type { UpdateStoreConfigInput } from '@/lib/validations/storeConfig'
 
 export async function getStoreConfig() {
-  let config = await prisma.storeConfig.findFirst()
+  const response = await shopflowApi.get<{ success: boolean; data: any }>('/api/store-config')
 
-  // If no config exists, create a default one
-  if (!config) {
-    config = await prisma.storeConfig.create({
-      data: {
-        name: 'My Store',
-        currency: 'USD',
-        taxRate: 0,
-        lowStockAlert: 10,
-        invoicePrefix: 'INV-',
-        invoiceNumber: 1,
-        allowSalesWithoutStock: false,
-      },
-    })
+  if (!response.success) {
+    throw new Error(response.error || 'Error al obtener configuración de tienda')
   }
 
-  return config
+  return response.data
 }
 
 export async function updateStoreConfig(data: UpdateStoreConfigInput) {
-  const config = await getStoreConfig()
+  const response = await shopflowApi.put<{ success: boolean; data: any; error?: string }>(
+    '/api/store-config',
+    data
+  )
 
-  const updatedConfig = await prisma.storeConfig.update({
-    where: { id: config.id },
-    data: {
-      name: data.name,
-      address: data.address ?? undefined,
-      phone: data.phone ?? undefined,
-      email: data.email ?? undefined,
-      taxId: data.taxId ?? undefined,
-      currency: data.currency,
-      taxRate: data.taxRate,
-      lowStockAlert: data.lowStockAlert,
-      invoicePrefix: data.invoicePrefix,
-      allowSalesWithoutStock: data.allowSalesWithoutStock,
-    },
-  })
+  if (!response.success) {
+    throw new Error(response.error || 'Error al actualizar configuración de tienda')
+  }
 
-  return updatedConfig
+  return response.data
 }
 
 export async function getNextInvoiceNumber(): Promise<string> {
-  const config = await getStoreConfig()
+  const response = await shopflowApi.post<{ success: boolean; data: { invoiceNumber: string }; error?: string }>(
+    '/api/store-config/next-invoice-number',
+    {}
+  )
 
-  // Increment invoice number and update
-  const updatedConfig = await prisma.storeConfig.update({
-    where: { id: config.id },
-    data: {
-      invoiceNumber: config.invoiceNumber + 1,
-    },
-  })
+  if (!response.success) {
+    throw new Error(response.error || 'Error al obtener siguiente número de factura')
+  }
 
-  return `${config.invoicePrefix}${updatedConfig.invoiceNumber.toString().padStart(6, '0')}`
+  return response.data.invoiceNumber
 }

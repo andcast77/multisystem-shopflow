@@ -601,7 +601,7 @@ class SyncService {
       // Limit is max 100 per the API schema, so we'll fetch in pages
       const limit = 100
       let page = 1
-      let allServerProducts: any[] = []
+      const allServerProducts: any[] = []
       let hasMore = true
       
       // Fetch all products in pages

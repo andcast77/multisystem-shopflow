@@ -1,51 +1,35 @@
-import { prisma } from '@/lib/prisma'
+import { shopflowApi } from '@/lib/api/client'
 import type { UpdateTicketConfigInput } from '@/lib/validations/ticketConfig'
 import { TicketType } from '@/types'
 
 export async function getTicketConfig(storeId?: string) {
-  let config = await prisma.ticketConfig.findFirst({
-    where: storeId ? { storeId } : { storeId: null },
-  })
+  const params = storeId ? new URLSearchParams({ storeId }) : undefined
+  const url = `/api/ticket-config${params ? `?${params.toString()}` : ''}`
+  
+  const response = await shopflowApi.get<{ success: boolean; data: any }>(url)
 
-  // If no config exists, create a default one
-  if (!config) {
-    config = await prisma.ticketConfig.create({
-      data: {
-        storeId: storeId || null,
-        ticketType: TicketType.TICKET,
-        thermalWidth: 80,
-        fontSize: 12,
-        copies: 1,
-        autoPrint: true,
-      },
-    })
+  if (!response.success) {
+    throw new Error(response.error || 'Error al obtener configuración de tickets')
   }
 
-  return config
+  return response.data
 }
 
 export async function updateTicketConfig(
   data: UpdateTicketConfigInput,
   storeId?: string
 ) {
-  const config = await getTicketConfig(storeId)
+  const params = storeId ? new URLSearchParams({ storeId }) : undefined
+  const url = `/api/ticket-config${params ? `?${params.toString()}` : ''}`
+  
+  const response = await shopflowApi.put<{ success: boolean; data: any; error?: string }>(
+    url,
+    { ...data, storeId }
+  )
 
-  const updatedConfig = await prisma.ticketConfig.update({
-    where: { id: config.id },
-    data: {
-      storeId: data.storeId ?? config.storeId,
-      ticketType: data.ticketType ?? config.ticketType,
-      header: data.header ?? undefined,
-      description: data.description ?? undefined,
-      logoUrl: data.logoUrl ?? undefined,
-      footer: data.footer ?? undefined,
-      defaultPrinterName: data.defaultPrinterName ?? undefined,
-      thermalWidth: data.thermalWidth ?? undefined,
-      fontSize: data.fontSize ?? config.fontSize,
-      copies: data.copies ?? config.copies,
-      autoPrint: data.autoPrint ?? config.autoPrint,
-    },
-  })
+  if (!response.success) {
+    throw new Error(response.error || 'Error al actualizar configuración de tickets')
+  }
 
-  return updatedConfig
+  return response.data
 }

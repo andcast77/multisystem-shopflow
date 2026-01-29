@@ -12,7 +12,7 @@ export const createSupplierSchema = z.object({
   country: z.string().optional().nullable(),
   taxId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
-  active: z.boolean().default(true),
+  active: z.boolean(),
 })
 
 export type CreateSupplierInput = z.infer<typeof createSupplierSchema>

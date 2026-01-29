@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { shopflowApi } from '@/lib/api/client'
 import { ApiError, ErrorCodes } from '@/lib/utils/errors'
 import type { CreateSaleInput, SaleQueryInput } from '@/lib/validations/sale'
 import { getStoreConfig, getNextInvoiceNumber } from './storeConfigService'
@@ -18,127 +18,39 @@ export async function getSales(query: SaleQueryInput = { page: 1, limit: 20 }) {
     limit = 20,
   } = query
 
-  const skip = (page - 1) * limit
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+  })
 
-  // Build where clause
-  const where: {
-    customerId?: string
-    userId?: string
-    status?: SaleStatus
-    paymentMethod?: PaymentMethod
-    createdAt?: { gte?: Date; lte?: Date }
-  } = {}
+  if (customerId) params.append('customerId', customerId)
+  if (userId) params.append('userId', userId)
+  if (status) params.append('status', status)
+  if (paymentMethod) params.append('paymentMethod', paymentMethod)
+  if (startDate) params.append('startDate', startDate)
+  if (endDate) params.append('endDate', endDate)
 
-  if (customerId) {
-    where.customerId = customerId
+  const response = await shopflowApi.get<{ success: boolean; data: { sales: any[]; pagination: any } }>(
+    `/api/sales?${params.toString()}`
+  )
+
+  if (!response.success) {
+    throw new ApiError(500, response.error || 'Error al obtener ventas', ErrorCodes.INTERNAL_ERROR)
   }
 
-  if (userId) {
-    where.userId = userId
-  }
-
-  if (status) {
-    where.status = status
-  }
-
-  if (paymentMethod) {
-    where.paymentMethod = paymentMethod
-  }
-
-  if (startDate || endDate) {
-    where.createdAt = {}
-    if (startDate) {
-      where.createdAt.gte = new Date(startDate)
-    }
-    if (endDate) {
-      where.createdAt.lte = new Date(endDate)
-    }
-  }
-
-  const [sales, total] = await Promise.all([
-    prisma.sale.findMany({
-      where,
-      include: {
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                sku: true,
-              },
-            },
-          },
-        },
-      },
-      skip,
-      take: limit,
-      orderBy: {
-        createdAt: 'desc',
-      },
-    }),
-    prisma.sale.count({ where }),
-  ])
-
-  return {
-    sales,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  }
+  return response.data
 }
 
 export async function getSaleById(id: string) {
-  const sale = await prisma.sale.findUnique({
-    where: { id },
-    include: {
-      customer: true,
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
-      items: {
-        include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-              sku: true,
-              barcode: true,
-              price: true,
-            },
-          },
-        },
-      },
-    },
-  })
+  const response = await shopflowApi.get<{ success: boolean; data: any; error?: string }>(
+    `/api/sales/${id}`
+  )
 
-  if (!sale) {
-    throw new ApiError(404, 'Sale not found', ErrorCodes.NOT_FOUND)
+  if (!response.success) {
+    throw new ApiError(404, response.error || 'Sale not found', ErrorCodes.NOT_FOUND)
   }
 
-  return sale
+  return response.data
 }
 
 export async function createSale(userId: string, data: CreateSaleInput) {
@@ -162,10 +74,10 @@ export async function createSale(userId: string, data: CreateSaleInput) {
 
   // Validate customer exists (if provided)
   if (data.customerId) {
-    const customer = await prisma.customer.findUnique({
-      where: { id: data.customerId },
-    })
-    if (!customer) {
+    const { getCustomerById } = await import('./customerService')
+    try {
+      await getCustomerById(data.customerId)
+    } catch {
       throw new ApiError(404, 'Customer not found', ErrorCodes.NOT_FOUND)
     }
   }
@@ -214,79 +126,26 @@ export async function createSale(userId: string, data: CreateSaleInput) {
   // Generate invoice number
   const invoiceNumber = await getNextInvoiceNumber()
 
-  // Create sale in transaction
-  const sale = await prisma.$transaction(async (tx) => {
-    // Create sale
-    const newSale = await tx.sale.create({
-      data: {
-        invoiceNumber,
-        customerId: data.customerId ?? null,
-        userId,
-        status: SaleStatus.COMPLETED,
-        subtotal,
-        tax,
-        discount,
-        total,
-        paymentMethod: data.paymentMethod,
-        paidAmount: data.paidAmount,
-        change,
-        notes: data.notes ?? null,
-        items: {
-          create: saleItems.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.price,
-            discount: item.discount,
-            subtotal: item.subtotal,
-          })),
-        },
-      },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                sku: true,
-              },
-            },
-          },
-        },
-      },
-    })
+  // Create sale via API
+  const response = await shopflowApi.post<{ success: boolean; data: any; error?: string }>(
+    '/api/sales',
+    {
+      customerId: data.customerId ?? null,
+      userId,
+      items: data.items,
+      paymentMethod: data.paymentMethod,
+      paidAmount: data.paidAmount,
+      discount,
+      taxRate,
+      notes: data.notes ?? null,
+    }
+  )
 
-    // Update product stock
-    await Promise.all(
-      productChecks.map(({ product, item }) =>
-        tx.product.update({
-          where: { id: product.id },
-          data: {
-            stock: {
-              decrement: item.quantity,
-            },
-          },
-        })
-      )
-    )
+  if (!response.success) {
+    throw new ApiError(400, response.error || 'Error al crear venta', ErrorCodes.VALIDATION_ERROR)
+  }
 
-    return newSale
-  })
+  const sale = response.data
 
   // Award loyalty points if customer exists and sale was successful
   if (sale.customerId) {
@@ -312,59 +171,16 @@ export async function cancelSale(id: string) {
     throw new ApiError(400, 'Cannot cancel a refunded sale', ErrorCodes.VALIDATION_ERROR)
   }
 
-  // Cancel sale and restore stock in transaction
-  const cancelledSale = await prisma.$transaction(async (tx) => {
-    // Update sale status
-    const updatedSale = await tx.sale.update({
-      where: { id },
-      data: {
-        status: SaleStatus.CANCELLED,
-      },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                sku: true,
-              },
-            },
-          },
-        },
-      },
-    })
+  const response = await shopflowApi.post<{ success: boolean; data: any; error?: string }>(
+    `/api/sales/${id}/cancel`,
+    {}
+  )
 
-    // Restore product stock
-    await Promise.all(
-      sale.items.map((item) =>
-        tx.product.update({
-          where: { id: item.productId },
-          data: {
-            stock: {
-              increment: item.quantity,
-            },
-          },
-        })
-      )
-    )
+  if (!response.success) {
+    throw new ApiError(400, response.error || 'Error al cancelar venta', ErrorCodes.VALIDATION_ERROR)
+  }
 
-    return updatedSale
-  })
-
-  return cancelledSale
+  return response.data
 }
 
 export async function refundSale(id: string) {
@@ -386,58 +202,14 @@ export async function refundSale(id: string) {
     )
   }
 
-  // Refund sale and restore stock in transaction
-  const refundedSale = await prisma.$transaction(async (tx) => {
-    // Update sale status
-    const updatedSale = await tx.sale.update({
-      where: { id },
-      data: {
-        status: SaleStatus.REFUNDED,
-      },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                sku: true,
-              },
-            },
-          },
-        },
-      },
-    })
+  const response = await shopflowApi.post<{ success: boolean; data: any; error?: string }>(
+    `/api/sales/${id}/refund`,
+    {}
+  )
 
-    // Restore product stock
-    await Promise.all(
-      sale.items.map((item) =>
-        tx.product.update({
-          where: { id: item.productId },
-          data: {
-            stock: {
-              increment: item.quantity,
-            },
-          },
-        })
-      )
-    )
+  if (!response.success) {
+    throw new ApiError(400, response.error || 'Error al reembolsar venta', ErrorCodes.VALIDATION_ERROR)
+  }
 
-    return updatedSale
-  })
-
-  return refundedSale
+  return response.data
 }
-

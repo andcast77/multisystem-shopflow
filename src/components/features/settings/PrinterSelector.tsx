@@ -81,8 +81,6 @@ export function PrinterSelector() {
     )
   }
 
-  const defaultPrinterObj = printers.find((p) => p.id === defaultPrinter)
-
   return (
     <div className="space-y-6">
       {/* Modo de Impresión */}

@@ -1,36 +1,30 @@
-import { prisma } from '@/lib/prisma'
+import { shopflowApi } from '@/lib/api/client'
 import type { UpdateUserPreferencesInput } from '@/lib/validations/userPreferences'
 
 export async function getUserPreferences(userId: string) {
-  let preferences = await prisma.userPreferences.findUnique({
-    where: { userId },
-  })
+  const response = await shopflowApi.get<{ success: boolean; data: any }>(
+    `/api/user-preferences/${userId}`
+  )
 
-  // If no preferences exist, create default ones
-  if (!preferences) {
-    preferences = await prisma.userPreferences.create({
-      data: {
-        userId,
-        language: 'es',
-      },
-    })
+  if (!response.success) {
+    throw new Error(response.error || 'Error al obtener preferencias de usuario')
   }
 
-  return preferences
+  return response.data
 }
 
 export async function updateUserPreferences(
   userId: string,
   data: UpdateUserPreferencesInput
 ) {
-  const preferences = await getUserPreferences(userId)
+  const response = await shopflowApi.put<{ success: boolean; data: any; error?: string }>(
+    `/api/user-preferences/${userId}`,
+    data
+  )
 
-  const updatedPreferences = await prisma.userPreferences.update({
-    where: { id: preferences.id },
-    data: {
-      language: data.language,
-    },
-  })
+  if (!response.success) {
+    throw new Error(response.error || 'Error al actualizar preferencias de usuario')
+  }
 
-  return updatedPreferences
+  return response.data
 }

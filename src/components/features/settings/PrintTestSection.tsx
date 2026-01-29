@@ -6,11 +6,11 @@ import { usePrinters } from '@/hooks/usePrinters'
 import { TicketPrintTemplate } from '@/components/features/pos/TicketPrintTemplate'
 import { SheetPrintTemplate } from '@/components/features/pos/SheetPrintTemplate'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { useReactToPrint } from 'react-to-print'
 import { Printer, FileText } from 'lucide-react'
+import { SaleStatus, PaymentMethod, TicketType } from '@/types'
 import type { Sale, SaleItem, Product, Customer } from '@/types'
 
 // Datos de prueba para la venta
@@ -22,13 +22,12 @@ const mockSale: Sale & {
   invoiceNumber: 'FAC-2026-0001',
   customerId: 'test-customer-001',
   userId: 'test-user-001',
-  storeId: null,
-  status: 'COMPLETED',
+  status: SaleStatus.COMPLETED,
   subtotal: 150.00,
   tax: 18.00,
   discount: 10.00,
   total: 158.00,
-  paymentMethod: 'CASH',
+  paymentMethod: PaymentMethod.CASH,
   paidAmount: 200.00,
   change: 42.00,
   notes: null,
@@ -43,6 +42,8 @@ const mockSale: Sale & {
       price: 50.00,
       discount: 0,
       subtotal: 100.00,
+      createdAt: new Date(),
+      updatedAt: new Date(),
       product: {
         id: 'prod-001',
         name: 'Producto de Prueba 1',
@@ -54,8 +55,6 @@ const mockSale: Sale & {
         stock: 100,
         minStock: 10,
         categoryId: null,
-        supplierId: null,
-        storeId: null,
         active: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -69,6 +68,8 @@ const mockSale: Sale & {
       price: 50.00,
       discount: 10.00,
       subtotal: 40.00,
+      createdAt: new Date(),
+      updatedAt: new Date(),
       product: {
         id: 'prod-002',
         name: 'Producto de Prueba 2',
@@ -80,8 +81,6 @@ const mockSale: Sale & {
         stock: 50,
         minStock: 5,
         categoryId: null,
-        supplierId: null,
-        storeId: null,
         active: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -98,6 +97,7 @@ const mockSale: Sale & {
     state: 'Estado de Prueba',
     postalCode: '12345',
     country: 'País de Prueba',
+    loyaltyPoints: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
   },
@@ -106,11 +106,11 @@ const mockSale: Sale & {
 export function PrintTestSection() {
   const { data: ticketConfig } = useTicketConfig()
   const { printers, defaultPrinter } = usePrinters()
-  const [selectedType, setSelectedType] = useState<'TICKET' | 'SHEET'>('TICKET')
+  const [selectedType, setSelectedType] = useState<TicketType>(TicketType.TICKET)
   const printRef = useRef<HTMLDivElement>(null)
 
   const handlePrint = useReactToPrint({
-    content: () => printRef.current,
+    contentRef: printRef,
     documentTitle: `Prueba-${selectedType}-${mockSale.invoiceNumber}`,
   })
 
@@ -119,7 +119,7 @@ export function PrintTestSection() {
   }
 
   // Crear una configuración temporal basada en la selección
-  const testConfig = {
+  const testConfig: typeof ticketConfig = {
     ...ticketConfig,
     ticketType: selectedType,
   }
@@ -138,14 +138,14 @@ export function PrintTestSection() {
           <Label htmlFor="printType">Tipo de Impresión</Label>
           <Select
             value={selectedType}
-            onValueChange={(value) => setSelectedType(value as 'TICKET' | 'SHEET')}
+            onValueChange={(value) => setSelectedType(value as TicketType)}
           >
             <SelectTrigger id="printType">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="TICKET">Ticket (Impresora Térmica)</SelectItem>
-              <SelectItem value="SHEET">Hoja (Impresora Estándar)</SelectItem>
+              <SelectItem value={TicketType.TICKET}>Ticket (Impresora Térmica)</SelectItem>
+              <SelectItem value={TicketType.SHEET}>Hoja (Impresora Estándar)</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -176,7 +176,7 @@ export function PrintTestSection() {
 
       <div className="border rounded-lg p-4 bg-white">
         <div ref={printRef} className="print:bg-white">
-          {selectedType === 'TICKET' ? (
+          {selectedType === TicketType.TICKET ? (
             <TicketPrintTemplate sale={mockSale} config={testConfig} />
           ) : (
             <SheetPrintTemplate sale={mockSale} config={testConfig} />

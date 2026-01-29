@@ -29,7 +29,12 @@ export enum TicketType {
 
 export enum NotificationType {
   LOW_STOCK = 'LOW_STOCK',
+  LOW_STOCK_ALERT = 'LOW_STOCK_ALERT',
   IMPORTANT_SALE = 'IMPORTANT_SALE',
+  PENDING_TASK = 'PENDING_TASK',
+  SYSTEM_MAINTENANCE = 'SYSTEM_MAINTENANCE',
+  SECURITY_ALERT = 'SECURITY_ALERT',
+  CUSTOM = 'CUSTOM',
   SYSTEM = 'SYSTEM',
 }
 
@@ -101,6 +106,7 @@ export interface Category {
   id: string
   name: string
   description: string | null
+  parentId?: string | null
   active: boolean
   createdAt: Date
   updatedAt: Date
@@ -157,9 +163,14 @@ export interface StoreConfig {
   address: string | null
   phone: string | null
   email: string | null
+  taxId: string | null
   taxRate: number
   currency: string
   logoUrl: string | null
+  lowStockAlert: number
+  invoicePrefix: string
+  invoiceNumber: number
+  allowSalesWithoutStock: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -228,8 +239,21 @@ export interface Notification {
 export interface NotificationPreference {
   id: string
   userId: string
-  type: NotificationType
-  enabled: boolean
+  emailEnabled: boolean
+  inAppEnabled: boolean
+  pushEnabled: boolean
+  emailLowStock?: boolean
+  inAppLowStock?: boolean
+  pushLowStock?: boolean
+  emailImportantSales?: boolean
+  inAppImportantSales?: boolean
+  pushImportantSales?: boolean
+  emailPendingTasks?: boolean
+  inAppPendingTasks?: boolean
+  pushPendingTasks?: boolean
+  emailSecurityAlerts?: boolean
+  inAppSecurityAlerts?: boolean
+  pushSecurityAlerts?: boolean
   createdAt: Date
   updatedAt: Date
 }

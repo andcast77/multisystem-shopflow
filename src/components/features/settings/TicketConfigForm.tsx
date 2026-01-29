@@ -19,13 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { TicketConfig, TicketType } from '@/types'
-import { Upload, X, Printer } from 'lucide-react'
-import { useReactToPrint } from 'react-to-print'
+import { TicketType } from '@/types'
+import type { TicketConfig } from '@/types'
+import { X, Printer } from 'lucide-react'
 import { useRef } from 'react'
 import { TicketPrintTemplate } from '@/components/features/pos/TicketPrintTemplate'
 import { SheetPrintTemplate } from '@/components/features/pos/SheetPrintTemplate'
-import { usePrinters } from '@/hooks/usePrinters'
 
 interface TicketConfigFormProps {
   initialData: TicketConfig
@@ -34,8 +33,8 @@ interface TicketConfigFormProps {
 }
 
 const TICKET_TYPES: { value: TicketType; label: string }[] = [
-  { value: 'TICKET', label: 'Ticket (Impresora Térmica)' },
-  { value: 'SHEET', label: 'Hoja (Impresora Estándar)' },
+  { value: TicketType.TICKET, label: 'Ticket (Impresora Térmica)' },
+  { value: TicketType.SHEET, label: 'Hoja (Impresora Estándar)' },
 ]
 
 // Datos de prueba para la venta
@@ -323,7 +322,7 @@ export function TicketConfigForm({
       console.error('Error en handlePrint:', error)
       
       // Usar alert temporalmente (se puede mejorar con un toast notification)
-      if (typeof window !== 'undefined' && window.alert) {
+      if (typeof window !== 'undefined') {
         alert(errorMessage)
       }
     }

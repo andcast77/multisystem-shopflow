@@ -32,46 +32,53 @@ class ApiClient {
     return response.json()
   }
 
-  async get<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'GET' })
+  async get<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    return this.request<T>(endpoint, { method: 'GET', ...options })
   }
 
-  async post<T>(endpoint: string, data?: unknown): Promise<T> {
+  async post<T>(endpoint: string, data?: unknown, options?: RequestInit): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
+      ...options,
     })
   }
 
-  async put<T>(endpoint: string, data?: unknown): Promise<T> {
+  async put<T>(endpoint: string, data?: unknown, options?: RequestInit): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
+      ...options,
     })
   }
 
-  async delete<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'DELETE' })
+  async delete<T>(endpoint: string, data?: unknown, options?: RequestInit): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'DELETE',
+      body: data ? JSON.stringify(data) : undefined,
+      ...options,
+    })
   }
 }
 
 // Unified API Client
-const apiClient = new ApiClient(API_URL)
+export const apiClient = new ApiClient(API_URL)
+const _apiClient = apiClient
 
 // ShopFlow API Client (uses /api/shopflow prefix)
 export const shopflowApi = {
-  get: <T>(endpoint: string) => apiClient.get<T>(`/api/shopflow${endpoint}`),
-  post: <T>(endpoint: string, data?: unknown) => apiClient.post<T>(`/api/shopflow${endpoint}`, data),
-  put: <T>(endpoint: string, data?: unknown) => apiClient.put<T>(`/api/shopflow${endpoint}`, data),
-  delete: <T>(endpoint: string) => apiClient.delete<T>(`/api/shopflow${endpoint}`),
+  get: <T>(endpoint: string, options?: RequestInit) => apiClient.get<T>(`/api/shopflow${endpoint}`, options),
+  post: <T>(endpoint: string, data?: unknown, options?: RequestInit) => apiClient.post<T>(`/api/shopflow${endpoint}`, data, options),
+  put: <T>(endpoint: string, data?: unknown, options?: RequestInit) => apiClient.put<T>(`/api/shopflow${endpoint}`, data, options),
+  delete: <T>(endpoint: string, data?: unknown, options?: RequestInit) => apiClient.delete<T>(`/api/shopflow${endpoint}`, data, options),
 }
 
 // Auth API Client (uses /api/auth prefix)
 export const authApi = {
-  get: <T>(endpoint: string) => apiClient.get<T>(`/api/auth${endpoint}`),
-  post: <T>(endpoint: string, data?: unknown) => apiClient.post<T>(`/api/auth${endpoint}`, data),
-  put: <T>(endpoint: string, data?: unknown) => apiClient.put<T>(`/api/auth${endpoint}`, data),
-  delete: <T>(endpoint: string) => apiClient.delete<T>(`/api/auth${endpoint}`),
+  get: <T>(endpoint: string, options?: RequestInit) => apiClient.get<T>(`/api/auth${endpoint}`, options),
+  post: <T>(endpoint: string, data?: unknown, options?: RequestInit) => apiClient.post<T>(`/api/auth${endpoint}`, data, options),
+  put: <T>(endpoint: string, data?: unknown, options?: RequestInit) => apiClient.put<T>(`/api/auth${endpoint}`, data, options),
+  delete: <T>(endpoint: string, options?: RequestInit) => apiClient.delete<T>(`/api/auth${endpoint}`, options),
 }
 
 // Generic API response types

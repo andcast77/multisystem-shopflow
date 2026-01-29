@@ -41,6 +41,7 @@ async function fetchCategories(): Promise<Category[]> {
     name: c.name,
     description: c.description || null,
     parentId: c.parentId || null,
+    active: true,
     createdAt: new Date(),
     updatedAt: new Date(c.updatedAt),
   }))
@@ -82,6 +83,7 @@ async function fetchCategory(id: string): Promise<Category> {
     name: offlineCategory.name,
     description: offlineCategory.description || null,
     parentId: offlineCategory.parentId || null,
+    active: true,
     createdAt: new Date(),
     updatedAt: new Date(offlineCategory.updatedAt),
   }
@@ -99,6 +101,7 @@ async function createCategory(data: CreateCategoryInput): Promise<Category> {
       name: data.name,
       description: data.description || null,
       parentId: data.parentId || null,
+      active: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
@@ -159,6 +162,7 @@ async function createCategory(data: CreateCategoryInput): Promise<Category> {
         name: data.name,
         description: data.description || null,
         parentId: data.parentId || null,
+        active: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       }
@@ -200,8 +204,8 @@ async function updateCategory(id: string, data: UpdateCategoryInput): Promise<Ca
       const updatedCategory: OfflineCategory = {
         ...existingCategory,
         name: data.name ?? existingCategory.name,
-        description: data.description !== undefined ? data.description : existingCategory.description,
-        parentId: data.parentId !== undefined ? data.parentId : existingCategory.parentId,
+        description: data.description !== undefined ? (data.description ?? undefined) : existingCategory.description,
+        parentId: data.parentId !== undefined ? (data.parentId ?? undefined) : existingCategory.parentId,
         updatedAt: new Date().toISOString(),
       }
 
@@ -216,6 +220,7 @@ async function updateCategory(id: string, data: UpdateCategoryInput): Promise<Ca
         name: updatedCategory.name,
         description: updatedCategory.description || null,
         parentId: updatedCategory.parentId || null,
+        active: true,
         createdAt: new Date(),
         updatedAt: new Date(updatedCategory.updatedAt),
       }
@@ -258,8 +263,8 @@ async function updateCategory(id: string, data: UpdateCategoryInput): Promise<Ca
       const updatedCategory: OfflineCategory = {
         ...existingCategory,
         name: data.name ?? existingCategory.name,
-        description: data.description !== undefined ? data.description : existingCategory.description,
-        parentId: data.parentId !== undefined ? data.parentId : existingCategory.parentId,
+        description: data.description !== undefined ? (data.description ?? undefined) : existingCategory.description,
+        parentId: data.parentId !== undefined ? (data.parentId ?? undefined) : existingCategory.parentId,
         updatedAt: new Date().toISOString(),
       }
 
@@ -270,6 +275,7 @@ async function updateCategory(id: string, data: UpdateCategoryInput): Promise<Ca
         name: updatedCategory.name,
         description: updatedCategory.description || null,
         parentId: updatedCategory.parentId || null,
+        active: true,
         createdAt: new Date(),
         updatedAt: new Date(updatedCategory.updatedAt),
       }

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import { useOffline } from '@/hooks/useOffline'
 
 interface VirtualizedListProps<T> {

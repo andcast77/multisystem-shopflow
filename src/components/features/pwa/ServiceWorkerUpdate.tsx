@@ -74,7 +74,7 @@ export function ServiceWorkerUpdate() {
     })
 
     return () => {
-      window.removeEventListener('sw-update-available', handleUpdateAvailable as EventListener)
+      window.removeEventListener('sw-update-available', handleUpdateAvailable as unknown as EventListener)
     }
   }, [])
 

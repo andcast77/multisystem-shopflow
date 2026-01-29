@@ -5,8 +5,8 @@ export const createUserSchema = z.object({
   email: z.string().email('Invalid email'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   name: z.string().min(1, 'Name is required'),
-  role: z.nativeEnum(UserRole).default(UserRole.CASHIER),
-  active: z.boolean().default(true),
+  role: z.nativeEnum(UserRole),
+  active: z.boolean(),
 })
 
 export type CreateUserInput = z.infer<typeof createUserSchema>

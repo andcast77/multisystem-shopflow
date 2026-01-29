@@ -1,5 +1,4 @@
-import { prisma } from '@/lib/prisma'
-import { Prisma } from '@/types'
+import { shopflowApi } from '@/lib/api/client'
 import type { ActionType, EntityType } from '@/types'
 
 export interface LogActionInput {
@@ -27,16 +26,14 @@ export interface ActionHistoryQuery {
  * Log a user action to the action history
  */
 export async function logAction(input: LogActionInput): Promise<void> {
-  await prisma.actionHistory.create({
-    data: {
-      userId: input.userId,
-      action: input.action,
-      entityType: input.entityType,
-      entityId: input.entityId || null,
-      details: input.details ? JSON.stringify(input.details) : null,
-      ipAddress: input.ipAddress || null,
-      userAgent: input.userAgent || null,
-    },
+  await shopflowApi.post('/action-history', {
+    userId: input.userId,
+    action: input.action,
+    entityType: input.entityType,
+    entityId: input.entityId,
+    details: input.details,
+    ipAddress: input.ipAddress,
+    userAgent: input.userAgent,
   })
 }
 
@@ -55,70 +52,51 @@ export async function getActionHistory(query: ActionHistoryQuery = {}) {
     limit = 50,
   } = query
 
-  const skip = (page - 1) * limit
+  const params = new URLSearchParams()
+  if (userId) params.append('userId', userId)
+  if (action) params.append('action', action)
+  if (entityType) params.append('entityType', entityType)
+  if (entityId) params.append('entityId', entityId)
+  if (startDate) params.append('startDate', startDate.toISOString())
+  if (endDate) params.append('endDate', endDate.toISOString())
+  params.append('page', page.toString())
+  params.append('limit', limit.toString())
 
-  const where: Prisma.ActionHistoryWhereInput = {}
-
-  if (userId) {
-    where.userId = userId
-  }
-
-  if (action) {
-    where.action = action
-  }
-
-  if (entityType) {
-    where.entityType = entityType
-  }
-
-  if (entityId) {
-    where.entityId = entityId
-  }
-
-  if (startDate || endDate) {
-    where.createdAt = {}
-    if (startDate) {
-      where.createdAt.gte = startDate
-    }
-    if (endDate) {
-      where.createdAt.lte = endDate
-    }
-  }
-
-  const [actions, total] = await Promise.all([
-    prisma.actionHistory.findMany({
-      where,
-      include: {
+  const response = await shopflowApi.get<{
+    success: boolean
+    data?: {
+      actions: Array<{
+        id: string
+        userId: string
+        action: string
+        entityType: string
+        entityId: string | null
+        details: Record<string, unknown> | null
+        ipAddress: string | null
+        userAgent: string | null
+        createdAt: Date
         user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      skip,
-      take: limit,
-    }),
-    prisma.actionHistory.count({ where }),
-  ])
+          id: string
+          name: string | null
+          email: string
+          role: string
+        }
+      }>
+      pagination: {
+        page: number
+        limit: number
+        total: number
+        totalPages: number
+      }
+    }
+    error?: string
+  }>(`/action-history?${params.toString()}`)
 
-  return {
-    actions: actions.map((action) => ({
-      ...action,
-      details: action.details ? JSON.parse(action.details) : null,
-    })),
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Error al obtener historial de acciones')
   }
+
+  return response.data
 }
 
 /**

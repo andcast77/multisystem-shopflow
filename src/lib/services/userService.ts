@@ -1,55 +1,44 @@
-import { prisma } from '@/lib/prisma'
+import { apiClient } from '@/lib/api/client'
 import { ApiError, ErrorCodes } from '@/lib/utils/errors'
-import { hashPassword } from '@/lib/auth'
 import { UserRole } from '@/types'
 import type { CreateUserInput, UpdateUserInput, UserQueryInput } from '@/lib/validations/user'
 
 export async function getUsers(query: UserQueryInput = { page: 1, limit: 20 }) {
   const { search, role, active, page = 1, limit = 20 } = query
 
-  const skip = (page - 1) * limit
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+  })
+  if (search) params.append('search', search)
+  if (role) params.append('role', role)
+  if (active !== undefined) params.append('active', active.toString())
 
-  const where: {
-    email?: { contains: string }
-    role?: UserRole
-    active?: boolean
-  } = {}
+  // Note: The current /api/users endpoint doesn't support pagination/filters yet
+  // This is a simplified version that gets all active users
+  const response = await apiClient.get<{ success: boolean; data: any[] }>('/api/users')
 
+  if (!response.success) {
+    throw new ApiError(500, response.error || 'Error al obtener usuarios', ErrorCodes.INTERNAL_ERROR)
+  }
+
+  // Filter and paginate on client side (temporary until API supports it)
+  let filtered = response.data
   if (search) {
-    where.email = { contains: search }
+    filtered = filtered.filter((u) => u.email?.includes(search))
   }
-
   if (role) {
-    where.role = role
+    filtered = filtered.filter((u) => u.role === role)
   }
-
   if (active !== undefined) {
-    where.active = active
+    filtered = filtered.filter((u) => u.active === active)
   }
 
-  const [users, total] = await Promise.all([
-    prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        active: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      skip,
-      take: limit,
-      orderBy: {
-        createdAt: 'desc',
-      },
-    }),
-    prisma.user.count({ where }),
-  ])
+  const total = filtered.length
+  const paginated = filtered.slice((page - 1) * limit, page * limit)
 
   return {
-    users,
+    users: paginated,
     pagination: {
       page,
       limit,
@@ -60,135 +49,76 @@ export async function getUsers(query: UserQueryInput = { page: 1, limit: 20 }) {
 }
 
 export async function getUserById(id: string) {
-  const user = await prisma.user.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      active: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  })
+  const response = await apiClient.get<{ success: boolean; data: any; error?: string }>(`/api/users/${id}`)
 
-  if (!user) {
-    throw new ApiError(404, 'User not found', ErrorCodes.NOT_FOUND)
+  if (!response.success) {
+    throw new ApiError(404, response.error || 'User not found', ErrorCodes.NOT_FOUND)
   }
 
-  return user
+  return response.data
 }
 
 export async function createUser(data: CreateUserInput) {
-  // Check if user already exists
-  const existingUser = await prisma.user.findUnique({
-    where: { email: data.email },
+  const response = await apiClient.post<{ success: boolean; data: any; error?: string }>('/api/users', {
+    email: data.email,
+    password: data.password,
+    name: data.name,
+    role: data.role,
+    active: data.active,
   })
 
-  if (existingUser) {
-    throw new ApiError(400, 'User with this email already exists', ErrorCodes.VALIDATION_ERROR)
+  if (!response.success) {
+    if (response.error?.includes('ya existe')) {
+      throw new ApiError(400, 'User with this email already exists', ErrorCodes.VALIDATION_ERROR)
+    }
+    throw new ApiError(400, response.error || 'Error al crear usuario', ErrorCodes.VALIDATION_ERROR)
   }
 
-  // Hash password
-  const hashedPassword = await hashPassword(data.password)
-
-  // Create user
-  const user = await prisma.user.create({
-    data: {
-      email: data.email,
-      password: hashedPassword,
-      name: data.name,
-      role: data.role,
-      active: data.active,
-    },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      active: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  })
-
-  return user
+  return response.data
 }
 
 export async function updateUser(id: string, data: UpdateUserInput) {
-  // Check if user exists
-  await getUserById(id)
-
-  // If email is being updated, check if it's already taken
-  if (data.email) {
-    const existingUser = await prisma.user.findUnique({
-      where: { email: data.email },
-    })
-
-    if (existingUser && existingUser.id !== id) {
-      throw new ApiError(400, 'User with this email already exists', ErrorCodes.VALIDATION_ERROR)
-    }
-  }
-
-  // Prepare update data
-  const updateData: {
-    email?: string
-    password?: string
-    name?: string
-    role?: UserRole
-    active?: boolean
-  } = {}
-
-  if (data.email) updateData.email = data.email
-  if (data.name) updateData.name = data.name
-  if (data.role) updateData.role = data.role
+  const updateData: any = {}
+  if (data.email !== undefined) updateData.email = data.email
+  if (data.password !== undefined) updateData.password = data.password
+  if (data.name !== undefined) updateData.name = data.name
+  if (data.role !== undefined) updateData.role = data.role
   if (data.active !== undefined) updateData.active = data.active
 
-  // Hash password if provided
-  if (data.password) {
-    updateData.password = await hashPassword(data.password)
+  const response = await apiClient.put<{ success: boolean; data: any; error?: string }>(
+    `/api/users/${id}`,
+    updateData
+  )
+
+  if (!response.success) {
+    if (response.error?.includes('no encontrado')) {
+      throw new ApiError(404, 'User not found', ErrorCodes.NOT_FOUND)
+    }
+    if (response.error?.includes('ya existe')) {
+      throw new ApiError(400, 'User with this email already exists', ErrorCodes.VALIDATION_ERROR)
+    }
+    throw new ApiError(400, response.error || 'Error al actualizar usuario', ErrorCodes.VALIDATION_ERROR)
   }
 
-  // Update user
-  const user = await prisma.user.update({
-    where: { id },
-    data: updateData,
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      active: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  })
-
-  return user
+  return response.data
 }
 
 export async function deleteUser(id: string) {
-  // Check if user exists
-  await getUserById(id)
+  const response = await apiClient.delete<{ success: boolean; data?: any; error?: string }>(`/api/users/${id}`)
 
-  // Check if user has sales
-  const salesCount = await prisma.sale.count({
-    where: { userId: id },
-  })
-
-  if (salesCount > 0) {
-    throw new ApiError(
-      400,
-      'Cannot delete user with existing sales. Deactivate the user instead.',
-      ErrorCodes.VALIDATION_ERROR
-    )
+  if (!response.success) {
+    if (response.error?.includes('no encontrado')) {
+      throw new ApiError(404, 'User not found', ErrorCodes.NOT_FOUND)
+    }
+    if (response.error?.includes('tiene ventas')) {
+      throw new ApiError(
+        400,
+        'Cannot delete user with existing sales. Deactivate the user instead.',
+        ErrorCodes.VALIDATION_ERROR
+      )
+    }
+    throw new ApiError(400, response.error || 'Error al eliminar usuario', ErrorCodes.VALIDATION_ERROR)
   }
 
-  // Delete user
-  await prisma.user.delete({
-    where: { id },
-  })
-
-  return { success: true }
+  return response.data || { success: true }
 }

@@ -1,61 +1,52 @@
-import { prisma } from '@/lib/prisma'
-import { authenticate, generateToken } from '@/lib/auth'
+import { authApi } from '@/lib/api/client'
 import { ApiError, ErrorCodes } from '@/lib/utils/errors'
 import type { LoginInput } from '@/lib/validations/auth'
 
 export async function login(credentials: LoginInput) {
-  // Validate input using authenticate function
-  const user = await authenticate(credentials)
-  if (!user) {
-    throw new ApiError(401, 'Invalid credentials', ErrorCodes.UNAUTHORIZED)
+  const response = await authApi.post<{
+    success: boolean
+    data?: {
+      user: {
+        id: string
+        email: string
+        name: string | null
+        role: string
+      }
+      token: string
+    }
+    error?: string
+  }>('/login', credentials)
+
+  if (!response.success || !response.data) {
+    throw new ApiError(401, response.error || 'Invalid credentials', ErrorCodes.UNAUTHORIZED)
   }
 
-  // Get full user for token generation
-  const fullUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-    },
-  })
-
-  if (!fullUser) {
-    throw new ApiError(404, 'User not found', ErrorCodes.NOT_FOUND)
-  }
-
-  // Generate token
-  const token = generateToken(fullUser)
-
-  return {
-    user: {
-      id: fullUser.id,
-      email: fullUser.email,
-      name: fullUser.name,
-      role: fullUser.role,
-    },
-    token,
-  }
+  return response.data
 }
 
-export async function getCurrentUser(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      createdAt: true,
-      updatedAt: true,
+export async function getCurrentUser(token: string) {
+  const response = await authApi.get<{
+    success: boolean
+    data?: {
+      id: string
+      email: string
+      name: string | null
+      role: string
+      active: boolean
+      createdAt: Date
+      updatedAt: Date
+    }
+    error?: string
+  }>('/me', {
+    headers: {
+      Authorization: `Bearer ${token}`,
     },
   })
 
-  if (!user) {
-    throw new ApiError(404, 'User not found', ErrorCodes.NOT_FOUND)
+  if (!response.success || !response.data) {
+    throw new ApiError(404, response.error || 'User not found', ErrorCodes.NOT_FOUND)
   }
 
-  return user
+  return response.data
 }
 

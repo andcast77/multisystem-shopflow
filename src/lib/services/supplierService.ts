@@ -1,153 +1,80 @@
-import { prisma } from '@/lib/prisma'
+import { shopflowApi } from '@/lib/api/client'
 import { ApiError, ErrorCodes } from '@/lib/utils/errors'
 import type { CreateSupplierInput, UpdateSupplierInput, SupplierQueryInput } from '@/lib/validations/supplier'
 
 export async function getSuppliers(query: SupplierQueryInput = {}) {
   const { search, active } = query
 
-  // Build where clause
-  const where: {
-    OR?: Array<{ [key: string]: { contains: string } }>
-    active?: boolean
-  } = {}
+  const params = new URLSearchParams()
+  if (search) params.append('search', search)
+  if (active !== undefined) params.append('active', active.toString())
 
-  if (search) {
-    where.OR = [
-      { name: { contains: search } },
-      { email: { contains: search } },
-      { phone: { contains: search } },
-      { taxId: { contains: search } },
-    ]
+  const response = await shopflowApi.get<{ success: boolean; data: any[] }>(
+    `/api/suppliers?${params.toString()}`
+  )
+
+  if (!response.success) {
+    throw new ApiError(500, response.error || 'Error al obtener proveedores', ErrorCodes.INTERNAL_ERROR)
   }
 
-  if (active !== undefined) {
-    where.active = active
-  }
-
-  const suppliers = await prisma.supplier.findMany({
-    where,
-    include: {
-      _count: {
-        select: {
-          products: true,
-        },
-      },
-    },
-    orderBy: {
-      name: 'asc',
-    },
-  })
-
-  return suppliers
+  return response.data
 }
 
 export async function getSupplierById(id: string) {
-  const supplier = await prisma.supplier.findUnique({
-    where: { id },
-    include: {
-      products: {
-        select: {
-          id: true,
-          name: true,
-          sku: true,
-          price: true,
-          stock: true,
-        },
-      },
-      _count: {
-        select: {
-          products: true,
-        },
-      },
-    },
-  })
+  const response = await shopflowApi.get<{ success: boolean; data: any; error?: string }>(
+    `/api/suppliers/${id}`
+  )
 
-  if (!supplier) {
-    throw new ApiError(404, 'Supplier not found', ErrorCodes.NOT_FOUND)
+  if (!response.success) {
+    throw new ApiError(404, response.error || 'Supplier not found', ErrorCodes.NOT_FOUND)
   }
 
-  return supplier
+  return response.data
 }
 
 export async function createSupplier(data: CreateSupplierInput) {
-  const supplier = await prisma.supplier.create({
-    data: {
-      name: data.name,
-      email: data.email ?? null,
-      phone: data.phone ?? null,
-      address: data.address ?? null,
-      city: data.city ?? null,
-      state: data.state ?? null,
-      postalCode: data.postalCode ?? null,
-      country: data.country ?? null,
-      taxId: data.taxId ?? null,
-      notes: data.notes ?? null,
-      active: data.active ?? true,
-    },
-    include: {
-      _count: {
-        select: {
-          products: true,
-        },
-      },
-    },
-  })
+  const response = await shopflowApi.post<{ success: boolean; data: any; error?: string }>(
+    '/api/suppliers',
+    data
+  )
 
-  return supplier
+  if (!response.success) {
+    throw new ApiError(400, response.error || 'Error al crear proveedor', ErrorCodes.VALIDATION_ERROR)
+  }
+
+  return response.data
 }
 
 export async function updateSupplier(id: string, data: UpdateSupplierInput) {
-  // Check if supplier exists (will throw if not found)
-  await getSupplierById(id)
+  const response = await shopflowApi.put<{ success: boolean; data: any; error?: string }>(
+    `/api/suppliers/${id}`,
+    data
+  )
 
-  const supplier = await prisma.supplier.update({
-    where: { id },
-    data: {
-      ...(data.name !== undefined && { name: data.name }),
-      ...(data.email !== undefined && { email: data.email ?? null }),
-      ...(data.phone !== undefined && { phone: data.phone ?? null }),
-      ...(data.address !== undefined && { address: data.address ?? null }),
-      ...(data.city !== undefined && { city: data.city ?? null }),
-      ...(data.state !== undefined && { state: data.state ?? null }),
-      ...(data.postalCode !== undefined && { postalCode: data.postalCode ?? null }),
-      ...(data.country !== undefined && { country: data.country ?? null }),
-      ...(data.taxId !== undefined && { taxId: data.taxId ?? null }),
-      ...(data.notes !== undefined && { notes: data.notes ?? null }),
-      ...(data.active !== undefined && { active: data.active }),
-    },
-    include: {
-      _count: {
-        select: {
-          products: true,
-        },
-      },
-    },
-  })
+  if (!response.success) {
+    if (response.error?.includes('no encontrado')) {
+      throw new ApiError(404, 'Supplier not found', ErrorCodes.NOT_FOUND)
+    }
+    throw new ApiError(400, response.error || 'Error al actualizar proveedor', ErrorCodes.VALIDATION_ERROR)
+  }
 
-  return supplier
+  return response.data
 }
 
 export async function deleteSupplier(id: string) {
-  // Check if supplier exists (will throw if not found)
-  await getSupplierById(id)
+  const response = await shopflowApi.delete<{ success: boolean; data?: any; error?: string }>(
+    `/api/suppliers/${id}`
+  )
 
-  // Check if supplier has products
-  const productsCount = await prisma.product.count({
-    where: { supplierId: id },
-  })
-
-  if (productsCount > 0) {
-    throw new ApiError(
-      400,
-      'Cannot delete supplier that has products. Please reassign or delete products first.',
-      ErrorCodes.VALIDATION_ERROR
-    )
+  if (!response.success) {
+    if (response.error?.includes('no encontrado')) {
+      throw new ApiError(404, 'Supplier not found', ErrorCodes.NOT_FOUND)
+    }
+    if (response.error?.includes('tiene productos')) {
+      throw new ApiError(400, response.error, ErrorCodes.VALIDATION_ERROR)
+    }
+    throw new ApiError(400, response.error || 'Error al eliminar proveedor', ErrorCodes.VALIDATION_ERROR)
   }
 
-  await prisma.supplier.delete({
-    where: { id },
-  })
-
-  return { success: true }
+  return response.data || { success: true }
 }
-

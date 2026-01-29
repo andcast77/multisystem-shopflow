@@ -3,16 +3,15 @@
 import { useOffline } from '@/hooks/useOffline'
 import { useOfflineQueue } from '@/hooks/useOfflineQueue'
 import { Button } from '@/components/ui/button'
-import { RefreshCw, CheckCircle2, XCircle, Loader2, Clock, AlertCircle } from 'lucide-react'
+import { RefreshCw, XCircle } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { ConflictResolver } from './ConflictResolver'
-import { syncService } from '@/lib/services/syncService'
 import { useSyncNotificationStore } from '@/lib/stores/syncNotificationStore'
 import type { Conflict } from '@/lib/services/conflictResolver'
 
 export function SyncStatus() {
-  const { isOnline, isSyncing, syncProgress, syncError, syncAll, lastSyncTime } = useOffline()
-  const { items, pendingCount, failedCount, isLoading: queueLoading } = useOfflineQueue()
+  const { isOnline, isSyncing, syncError, syncAll } = useOffline()
+  const { failedCount } = useOfflineQueue()
   const { setNotification } = useSyncNotificationStore()
   const [isManualSyncing, setIsManualSyncing] = useState(false)
   const [conflicts, setConflicts] = useState<Conflict[]>([])
@@ -20,11 +19,6 @@ export function SyncStatus() {
 
   // Listen for sync results to get conflicts
   useEffect(() => {
-    const handleSyncComplete = async () => {
-      // Conflicts are stored in syncService, we need to get them from the last sync result
-      // For now, we'll check periodically or after sync
-    }
-
     if (!isSyncing && syncResult) {
       if (syncResult.conflicts && syncResult.conflicts.length > 0) {
         setConflicts(syncResult.conflicts)
@@ -49,7 +43,7 @@ export function SyncStatus() {
 
   const handleConflictResolved = () => {
     // Refresh conflicts after resolution
-    setConflicts((prev) => prev.filter((c) => {
+    setConflicts((prev) => prev.filter((_c) => {
       // Conflicts that were resolved should be removed
       // This is a simple implementation - in production, you'd track which were resolved
       return true
@@ -77,36 +71,6 @@ export function SyncStatus() {
   // No mostrar si solo hay errores de sincronización general (ConnectionStatus los maneja)
   if (!hasCriticalIssues) {
     return null
-  }
-
-  const formatLastSync = (timestamp: number | null) => {
-    if (!timestamp) return null
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMins = Math.floor(diffMs / 60000)
-
-    if (diffMins < 1) return 'Hace menos de un minuto'
-    if (diffMins < 60) return `Hace ${diffMins} minuto${diffMins > 1 ? 's' : ''}`
-    const diffHours = Math.floor(diffMins / 60)
-    if (diffHours < 24) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`
-    const diffDays = Math.floor(diffHours / 24)
-    return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`
-  }
-
-  const getProgressLabel = () => {
-    if (!syncProgress) return null
-
-    const stageLabels: Record<string, string> = {
-      products: 'Sincronizando productos...',
-      categories: 'Sincronizando categorías...',
-      customers: 'Sincronizando clientes...',
-      suppliers: 'Sincronizando proveedores...',
-      config: 'Sincronizando configuración...',
-      complete: 'Sincronización completa',
-    }
-
-    return stageLabels[syncProgress.stage] || 'Sincronizando...'
   }
 
   // Solo mostrar ConflictResolver si hay conflictos
