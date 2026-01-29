@@ -139,9 +139,6 @@ const nextConfig: NextConfig = {
     }
     return config
   },
-  // Output standalone for better offline support
-  // This creates a minimal server.js that can run independently
-  output: 'standalone',
 }
 
 export default nextConfig
