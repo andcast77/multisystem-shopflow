@@ -1,15 +1,8 @@
 // Printing service for different printer types
 import type { PrinterInfo } from './printers'
 import type { TicketConfig } from '@/types'
-import {
-  getSavedSerialPorts,
-} from './printers'
-import type { DetectedPrinter } from '@/lib/utils/printerDetection'
-import {
-  openSerialPort,
-  writeToSerialPort,
-  closeSerialPort,
-} from '@/lib/utils/printerDetection'
+import { getSavedSerialPorts } from './printers'
+// openSerialPort, writeToSerialPort, closeSerialPort from printerDetection reserved for future serial write
 
 /**
  * Generate ESC/POS commands for thermal printers
@@ -137,8 +130,8 @@ export async function printToSerialPrinter(
   // For now, we'll use a simplified approach with window.print() for thermal too
   // In a full implementation, you'd need to request the port again or use a different approach
 
-  // Generate ESC/POS commands
-  const commands = generateESCPOSCommands(content, ticketConfig)
+  // Generate ESC/POS commands (reserved for future serial write)
+  generateESCPOSCommands(content, ticketConfig)
 
   // For now, fallback to standard print
   // In production, you'd open the serial port and write commands

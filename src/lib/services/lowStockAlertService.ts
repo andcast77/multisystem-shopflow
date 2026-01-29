@@ -1,57 +1,44 @@
-import { prisma } from '@/lib/prisma'
+import { shopflowApi } from '@/lib/api/client'
 import { sendNotification } from './notificationService'
 import { NotificationType, NotificationPriority } from '@/types'
 
+interface LowStockProduct {
+  id: string
+  name: string
+  sku: string
+  stock: number
+  minStock: number
+  category?: { name: string }
+}
+
 /**
- * Check for low stock products and send alerts
+ * Check for low stock products and send alerts (via API)
  */
 export async function checkLowStockAlerts(): Promise<number> {
-  // Get all products with stock below minimum threshold
-  const lowStockProducts = await prisma.product.findMany({
-    where: {
-      active: true,
-      stock: {
-        lte: prisma.product.fields.minStock,
-      },
-    },
-    include: {
-      category: {
-        select: {
-          name: true,
-        },
-      },
-    },
-  })
+  const productsResponse = await shopflowApi.get<{ success: boolean; data?: LowStockProduct[] }>(
+    '/products/low-stock'
+  )
+  const lowStockProducts = productsResponse.success && productsResponse.data ? productsResponse.data : []
 
   if (lowStockProducts.length === 0) {
     return 0
   }
 
-  // Get all users who should receive notifications
-  const users = await prisma.user.findMany({
-    where: {
-      active: true,
-      role: {
-        in: ['ADMIN', 'SUPERVISOR'], // Only admins and supervisors get low stock alerts
-      },
-    },
-    include: {
-      notificationPreferences: true,
-    },
-  })
+  const usersResponse = await shopflowApi.get<{ success: boolean; data?: Array<{ id: string; notificationPreferences?: { inAppLowStock?: boolean } }> }>(
+    '/users/notify-recipients?role=ADMIN,SUPERVISOR'
+  )
+  const users = usersResponse.success && usersResponse.data ? usersResponse.data : []
 
   let notificationsSent = 0
 
   for (const user of users) {
-    // Check if user wants low stock notifications
     const preferences = user.notificationPreferences
-    if (!preferences?.inAppLowStock) {
+    if (preferences && preferences.inAppLowStock === false) {
       continue
     }
 
-    // Create notification for this user
     const productList = lowStockProducts
-      .map(p => `${p.name} (${p.stock}/${p.minStock})`)
+      .map((p: LowStockProduct) => `${p.name} (${p.stock}/${p.minStock})`)
       .join(', ')
 
     await sendNotification({
@@ -61,7 +48,7 @@ export async function checkLowStockAlerts(): Promise<number> {
       title: 'Productos con stock bajo',
       message: `${lowStockProducts.length} producto(s) tienen stock por debajo del mínimo: ${productList}`,
       data: {
-        products: lowStockProducts.map(p => ({
+        products: lowStockProducts.map((p: LowStockProduct) => ({
           id: p.id,
           name: p.name,
           sku: p.sku,
@@ -71,7 +58,7 @@ export async function checkLowStockAlerts(): Promise<number> {
         })),
       },
       actionUrl: '/products?filter=low-stock',
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Expires in 7 days
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     })
 
     notificationsSent++
@@ -81,40 +68,26 @@ export async function checkLowStockAlerts(): Promise<number> {
 }
 
 /**
- * Send alert for a specific product that went low on stock
+ * Send alert for a specific product that went low on stock (via API)
  */
 export async function sendLowStockAlertForProduct(productId: string): Promise<void> {
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
-    include: {
-      category: {
-        select: {
-          name: true,
-        },
-      },
-    },
-  })
+  const productResponse = await shopflowApi.get<{ success: boolean; data?: LowStockProduct }>(
+    `/products/${productId}`
+  )
+  const product = productResponse.success ? productResponse.data : null
 
   if (!product || product.stock > product.minStock) {
-    return // Product is not low on stock
+    return
   }
 
-  // Get all users who should receive notifications
-  const users = await prisma.user.findMany({
-    where: {
-      active: true,
-      role: {
-        in: ['ADMIN', 'SUPERVISOR'],
-      },
-    },
-    include: {
-      notificationPreferences: true,
-    },
-  })
+  const usersResponse = await shopflowApi.get<{ success: boolean; data?: Array<{ id: string; notificationPreferences?: { inAppLowStock?: boolean } }> }>(
+    '/users/notify-recipients?role=ADMIN,SUPERVISOR'
+  )
+  const users = usersResponse.success && usersResponse.data ? usersResponse.data : []
 
   for (const user of users) {
     const preferences = user.notificationPreferences
-    if (!preferences?.inAppLowStock) {
+    if (preferences && preferences.inAppLowStock === false) {
       continue
     }
 
@@ -135,7 +108,7 @@ export async function sendLowStockAlertForProduct(productId: string): Promise<vo
         },
       },
       actionUrl: `/products/${product.id}`,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Expires in 7 days
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     })
   }
 }

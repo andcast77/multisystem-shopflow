@@ -11,7 +11,7 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 5 * 60 * 1000, // 5 minutes - longer for offline support
             gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
-            retry: (failureCount, error: any) => {
+            retry: (failureCount, _error: unknown) => {
               // Don't retry if offline
               if (!navigator.onLine) {
                 return false
@@ -28,7 +28,7 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
             refetchOnMount: true, // Refetch on mount to get fresh data when online
           },
           mutations: {
-            retry: (failureCount, error: any) => {
+            retry: (failureCount, _error: unknown) => {
               // Don't retry mutations if offline - they'll be queued
               if (!navigator.onLine) {
                 return false

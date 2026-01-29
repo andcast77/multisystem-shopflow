@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useOffline } from '@/hooks/useOffline'
 
 export interface UseLazyComponentOptions {
@@ -78,11 +78,12 @@ export function useLazyComponent<T extends React.ComponentType<any>>(
 
       return () => clearTimeout(timer)
     }
+    return undefined
   }, [isOffline, preloadWhenOffline, Component, isLoading])
 
   // Distance-based loading (alternative to intersection observer)
   useEffect(() => {
-    if (!triggerDistance || Component || isLoading) return
+    if (!triggerDistance || Component || isLoading) return undefined
 
     const checkDistance = () => {
       const element = elementRef.current

@@ -1,4 +1,4 @@
-import { shopflowApi } from '@/lib/api/client'
+import { shopflowApi, type ApiResult } from '@/lib/api/client'
 import { ApiError, ErrorCodes } from '@/lib/utils/errors'
 import type { CreateSupplierInput, UpdateSupplierInput, SupplierQueryInput } from '@/lib/validations/supplier'
 
@@ -9,7 +9,7 @@ export async function getSuppliers(query: SupplierQueryInput = {}) {
   if (search) params.append('search', search)
   if (active !== undefined) params.append('active', active.toString())
 
-  const response = await shopflowApi.get<{ success: boolean; data: any[] }>(
+  const response = await shopflowApi.get<ApiResult<any[]>>(
     `/api/suppliers?${params.toString()}`
   )
 
@@ -21,7 +21,7 @@ export async function getSuppliers(query: SupplierQueryInput = {}) {
 }
 
 export async function getSupplierById(id: string) {
-  const response = await shopflowApi.get<{ success: boolean; data: any; error?: string }>(
+  const response = await shopflowApi.get<ApiResult<any>>(
     `/api/suppliers/${id}`
   )
 
@@ -33,7 +33,7 @@ export async function getSupplierById(id: string) {
 }
 
 export async function createSupplier(data: CreateSupplierInput) {
-  const response = await shopflowApi.post<{ success: boolean; data: any; error?: string }>(
+  const response = await shopflowApi.post<ApiResult<any>>(
     '/api/suppliers',
     data
   )
@@ -46,7 +46,7 @@ export async function createSupplier(data: CreateSupplierInput) {
 }
 
 export async function updateSupplier(id: string, data: UpdateSupplierInput) {
-  const response = await shopflowApi.put<{ success: boolean; data: any; error?: string }>(
+  const response = await shopflowApi.put<ApiResult<any>>(
     `/api/suppliers/${id}`,
     data
   )
@@ -62,7 +62,7 @@ export async function updateSupplier(id: string, data: UpdateSupplierInput) {
 }
 
 export async function deleteSupplier(id: string) {
-  const response = await shopflowApi.delete<{ success: boolean; data?: any; error?: string }>(
+  const response = await shopflowApi.delete<ApiResult<any>>(
     `/api/suppliers/${id}`
   )
 

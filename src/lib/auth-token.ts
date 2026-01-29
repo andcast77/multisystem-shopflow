@@ -3,8 +3,10 @@
 // Usa Web Crypto API para compatibilidad con Edge Runtime
 import type { UserRole } from '@/types'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
+const _JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
+const _JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
+void _JWT_SECRET
+void _JWT_EXPIRES_IN
 
 // Helper para decodificar base64url (compatible con Edge Runtime)
 function base64UrlDecode(str: string): string {

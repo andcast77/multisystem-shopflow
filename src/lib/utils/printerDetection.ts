@@ -1,4 +1,12 @@
 // Printer detection utilities using browser APIs
+// Web Serial API type (optional; not available in all environments)
+export interface SerialPort {
+  getInfo(): { path?: string; usbVendorId?: number; usbProductId?: number }
+  open(options: { baudRate: number }): Promise<void>
+  close(): Promise<void>
+  readable?: ReadableStream
+  writable?: WritableStream
+}
 
 export type PrinterType = 'STANDARD' | 'SERIAL' | 'USB' | 'NETWORK'
 

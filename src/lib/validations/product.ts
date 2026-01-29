@@ -11,6 +11,7 @@ export const createProductSchema = z.object({
   stock: z.number().int('Stock must be an integer').nonnegative('Stock cannot be negative').optional().default(0),
   minStock: z.number().int('Min stock must be an integer').nonnegative('Min stock cannot be negative').optional().default(0),
   categoryId: z.string().optional().nullable(),
+  supplierId: z.string().optional().nullable(),
   active: z.boolean().optional().default(true),
 })
 

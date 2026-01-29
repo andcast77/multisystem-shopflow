@@ -115,7 +115,7 @@ export async function awardPointsForPurchase(
 export async function redeemPoints(
   customerId: string,
   pointsToRedeem: number,
-  description?: string
+  _description?: string
 ): Promise<{ discountAmount: number; pointsUsed: number }> {
   const config = await getLoyaltyConfig()
   const balance = await getCustomerPointsBalance(customerId)
@@ -145,7 +145,7 @@ export async function redeemPoints(
  * Get points history for a customer
  */
 export async function getCustomerPointsHistory(
-  customerId: string,
+  _customerId: string,
   limit: number = 50,
   offset: number = 0
 ) {

@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/prisma'
-import { getStoreConfig } from './storeConfigService'
+import { shopflowApi } from '@/lib/api/client'
+import { getStoreConfig, getNextInvoiceNumber } from './storeConfigService'
 import { format } from 'date-fns'
 
 export interface InvoiceData {
@@ -35,54 +35,31 @@ export interface InvoiceData {
 }
 
 /**
- * Generate invoice number automatically
+ * Generate invoice number automatically via API
  * Format: {prefix}{number} (e.g., INV-0001)
  */
 export async function generateInvoiceNumber(): Promise<string> {
-  const config = await getStoreConfig()
-  const prefix = config.invoicePrefix || 'INV-'
-  const number = config.invoiceNumber || 1
-  const invoiceNumber = `${prefix}${number.toString().padStart(6, '0')}`
-
-  // Increment invoice number
-  await prisma.storeConfig.update({
-    where: { id: '1' },
-    data: { invoiceNumber: number + 1 },
-  })
-
-  return invoiceNumber
+  return getNextInvoiceNumber()
 }
 
 /**
- * Generate invoice data from sale
+ * Generate invoice data from sale (via API)
  */
 export async function generateInvoiceFromSale(saleId: string): Promise<InvoiceData> {
-  const sale = await prisma.sale.findUnique({
-    where: { id: saleId },
-    include: {
-      customer: true,
-      items: {
-        include: {
-          product: true,
-        },
-      },
-      user: {
-        select: {
-          name: true,
-        },
-      },
-    },
-  })
+  const response = await shopflowApi.get<{ success: boolean; data: SaleWithItems; error?: string }>(
+    `/sales/${saleId}`
+  )
 
-  if (!sale) {
-    throw new Error('Sale not found')
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Sale not found')
   }
 
+  const sale = response.data
   const storeConfig = await getStoreConfig()
 
   const invoiceData: InvoiceData = {
     invoiceNumber: sale.invoiceNumber || await generateInvoiceNumber(),
-    date: format(sale.createdAt, 'yyyy-MM-dd HH:mm:ss'),
+    date: format(new Date(sale.createdAt), 'yyyy-MM-dd HH:mm:ss'),
     store: {
       name: storeConfig.name,
       address: storeConfig.address || undefined,
@@ -90,30 +67,51 @@ export async function generateInvoiceFromSale(saleId: string): Promise<InvoiceDa
       email: storeConfig.email || undefined,
       taxId: storeConfig.taxId || undefined,
     },
-    items: sale.items.map((item) => ({
-      description: item.product.name,
+    items: sale.items.map((item: SaleItemResponse) => ({
+      description: item.product?.name ?? 'Product',
       quantity: item.quantity,
       unitPrice: item.price,
       subtotal: item.subtotal,
     })),
     subtotal: sale.subtotal,
     tax: sale.tax,
-    discount: sale.discount,
+    discount: sale.discount ?? 0,
     total: sale.total,
-    paymentMethod: sale.paymentMethod,
-    notes: sale.notes || undefined,
+    paymentMethod: sale.paymentMethod ?? 'CASH',
+    notes: sale.notes ?? undefined,
   }
 
   if (sale.customer) {
     invoiceData.customer = {
       name: sale.customer.name,
-      address: sale.customer.address || undefined,
-      phone: sale.customer.phone || undefined,
-      email: sale.customer.email || undefined,
+      address: sale.customer.address ?? undefined,
+      phone: sale.customer.phone ?? undefined,
+      email: sale.customer.email ?? undefined,
     }
   }
 
   return invoiceData
+}
+
+interface SaleWithItems {
+  id: string
+  invoiceNumber: string | null
+  subtotal: number
+  tax: number
+  discount: number | null
+  total: number
+  paymentMethod: string | null
+  notes: string | null
+  createdAt: string
+  customer?: { name: string; address?: string; phone?: string; email?: string }
+  items: SaleItemResponse[]
+}
+
+interface SaleItemResponse {
+  quantity: number
+  price: number
+  subtotal: number
+  product?: { name: string }
 }
 
 /**

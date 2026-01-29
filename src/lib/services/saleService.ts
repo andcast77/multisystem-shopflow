@@ -1,10 +1,10 @@
-import { shopflowApi } from '@/lib/api/client'
+import { shopflowApi, type ApiResult } from '@/lib/api/client'
 import { ApiError, ErrorCodes } from '@/lib/utils/errors'
-import type { CreateSaleInput, SaleQueryInput } from '@/lib/validations/sale'
+import type { CreateSaleInput, SaleQueryInput, SaleItemInput } from '@/lib/validations/sale'
 import { getStoreConfig, getNextInvoiceNumber } from './storeConfigService'
 import { getProductById } from './productService'
 import { awardPointsForPurchase } from './loyaltyService'
-import { SaleStatus, PaymentMethod } from '@/types'
+import { SaleStatus } from '@/types'
 
 export async function getSales(query: SaleQueryInput = { page: 1, limit: 20 }) {
   const {
@@ -30,7 +30,7 @@ export async function getSales(query: SaleQueryInput = { page: 1, limit: 20 }) {
   if (startDate) params.append('startDate', startDate)
   if (endDate) params.append('endDate', endDate)
 
-  const response = await shopflowApi.get<{ success: boolean; data: { sales: any[]; pagination: any } }>(
+  const response = await shopflowApi.get<ApiResult<{ sales: any[]; pagination: any }>>(
     `/api/sales?${params.toString()}`
   )
 
@@ -56,8 +56,8 @@ export async function getSaleById(id: string) {
 export async function createSale(userId: string, data: CreateSaleInput) {
   // Validate all products exist and have enough stock
   const productChecks = await Promise.all(
-    data.items.map(async (item) => {
-      const product = await getProductById(item.productId)
+    data.items.map(async (item: SaleItemInput) => {
+      const product = await getProductById(item.productId) as { active: boolean; name: string; stock: number }
       if (!product.active) {
         throw new ApiError(400, `Product ${product.name} is not active`, ErrorCodes.VALIDATION_ERROR)
       }
@@ -88,7 +88,7 @@ export async function createSale(userId: string, data: CreateSaleInput) {
 
   // Calculate totals
   let subtotal = 0
-  const saleItems = productChecks.map(({ product, item }) => {
+  productChecks.map(({ product, item }) => {
     const itemSubtotal = (item.price * item.quantity) - (item.discount || 0)
     subtotal += itemSubtotal
     return {
@@ -120,14 +120,11 @@ export async function createSale(userId: string, data: CreateSaleInput) {
     )
   }
 
-  // Calculate change (only for cash payments)
-  const change = data.paymentMethod === PaymentMethod.CASH ? data.paidAmount - total : 0
-
-  // Generate invoice number
-  const invoiceNumber = await getNextInvoiceNumber()
+  // Reserve next invoice number (API may use it when creating the sale)
+  await getNextInvoiceNumber()
 
   // Create sale via API
-  const response = await shopflowApi.post<{ success: boolean; data: any; error?: string }>(
+  const response = await shopflowApi.post<ApiResult<any>>(
     '/api/sales',
     {
       customerId: data.customerId ?? null,

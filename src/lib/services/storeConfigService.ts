@@ -1,8 +1,8 @@
-import { shopflowApi } from '@/lib/api/client'
+import { shopflowApi, type ApiResult } from '@/lib/api/client'
 import type { UpdateStoreConfigInput } from '@/lib/validations/storeConfig'
 
 export async function getStoreConfig() {
-  const response = await shopflowApi.get<{ success: boolean; data: any }>('/api/store-config')
+  const response = await shopflowApi.get<ApiResult<any>>('/api/store-config')
 
   if (!response.success) {
     throw new Error(response.error || 'Error al obtener configuración de tienda')
@@ -12,7 +12,7 @@ export async function getStoreConfig() {
 }
 
 export async function updateStoreConfig(data: UpdateStoreConfigInput) {
-  const response = await shopflowApi.put<{ success: boolean; data: any; error?: string }>(
+  const response = await shopflowApi.put<ApiResult<any>>(
     '/api/store-config',
     data
   )
@@ -25,7 +25,7 @@ export async function updateStoreConfig(data: UpdateStoreConfigInput) {
 }
 
 export async function getNextInvoiceNumber(): Promise<string> {
-  const response = await shopflowApi.post<{ success: boolean; data: { invoiceNumber: string }; error?: string }>(
+  const response = await shopflowApi.post<ApiResult<{ invoiceNumber: string }>>(
     '/api/store-config/next-invoice-number',
     {}
   )

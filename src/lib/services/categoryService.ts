@@ -1,4 +1,4 @@
-import { shopflowApi } from '@/lib/api/client'
+import { shopflowApi, type ApiResult } from '@/lib/api/client'
 import { ApiError, ErrorCodes } from '@/lib/utils/errors'
 import type { CreateCategoryInput, UpdateCategoryInput, CategoryQueryInput } from '@/lib/validations/category'
 
@@ -10,7 +10,7 @@ export async function getCategories(query: CategoryQueryInput = { includeChildre
   if (parentId !== undefined) params.append('parentId', parentId || 'null')
   if (includeChildren) params.append('includeChildren', 'true')
 
-  const response = await shopflowApi.get<{ success: boolean; data: any[] }>(
+  const response = await shopflowApi.get<ApiResult<any[]>>(
     `/api/categories?${params.toString()}`
   )
 
@@ -22,7 +22,7 @@ export async function getCategories(query: CategoryQueryInput = { includeChildre
 }
 
 export async function getCategoryById(id: string) {
-  const response = await shopflowApi.get<{ success: boolean; data: any; error?: string }>(
+  const response = await shopflowApi.get<ApiResult<any>>(
     `/api/categories/${id}`
   )
 
@@ -35,7 +35,7 @@ export async function getCategoryById(id: string) {
 
 export async function getRootCategories() {
   const params = new URLSearchParams({ parentId: 'null' })
-  const response = await shopflowApi.get<{ success: boolean; data: any[] }>(
+  const response = await shopflowApi.get<ApiResult<any[]>>(
     `/api/categories?${params.toString()}`
   )
 
@@ -138,19 +138,4 @@ export async function deleteCategory(id: string) {
   }
 
   return response.data || { success: true }
-}
-
-// Helper function to check if a category is an ancestor of another
-async function checkIfAncestor(categoryId: string, descendantId: string): Promise<boolean> {
-  const category = await getCategoryById(descendantId)
-
-  if (!category.parentId) {
-    return false
-  }
-
-  if (category.parentId === categoryId) {
-    return true
-  }
-
-  return checkIfAncestor(categoryId, category.parentId)
 }

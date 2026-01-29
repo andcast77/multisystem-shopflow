@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { shopflowApi } from '@/lib/api/client'
 import { ApiError, ErrorCodes } from '@/lib/utils/errors'
 import { getProductById } from './productService'
 import type { TransferStatus } from '@/types'
@@ -13,18 +13,15 @@ export interface CreateTransferInput {
 }
 
 /**
- * Create inventory transfer between stores
+ * Create inventory transfer between stores (via API)
  */
 export async function createTransfer(data: CreateTransferInput) {
-  // Validate stores are different
   if (data.fromStoreId === data.toStoreId) {
     throw new ApiError(400, 'Cannot transfer to the same store', ErrorCodes.VALIDATION_ERROR)
   }
 
-  // Validate product exists and has enough stock
-  const product = await getProductById(data.productId)
+  const product = await getProductById(data.productId) as { storeId?: string; stock: number }
 
-  // Check if product belongs to fromStore
   if (product.storeId && product.storeId !== data.fromStoreId) {
     throw new ApiError(400, 'Product does not belong to source store', ErrorCodes.VALIDATION_ERROR)
   }
@@ -33,157 +30,63 @@ export async function createTransfer(data: CreateTransferInput) {
     throw new ApiError(400, 'Insufficient stock', ErrorCodes.VALIDATION_ERROR)
   }
 
-  // Create transfer
-  const transfer = await prisma.inventoryTransfer.create({
-    data: {
+  const response = await shopflowApi.post<{ success: boolean; data: unknown; error?: string }>(
+    '/inventory-transfers',
+    {
       fromStoreId: data.fromStoreId,
       toStoreId: data.toStoreId,
       productId: data.productId,
       quantity: data.quantity,
       notes: data.notes,
       createdById: data.createdById,
-      status: 'PENDING',
-    },
-    include: {
-      fromStore: true,
-      toStore: true,
-      product: true,
-      createdBy: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
-    },
-  })
+    }
+  )
 
-  // Reduce stock from source store
-  await prisma.product.update({
-    where: { id: data.productId },
-    data: {
-      stock: {
-        decrement: data.quantity,
-      },
-    },
-  })
+  if (!response.success) {
+    throw new ApiError(400, response.error || 'Error al crear transferencia', ErrorCodes.VALIDATION_ERROR)
+  }
 
-  return transfer
+  return response.data
 }
 
 /**
- * Complete a transfer (add stock to destination store)
+ * Complete a transfer (via API)
  */
 export async function completeTransfer(transferId: string) {
-  const transfer = await prisma.inventoryTransfer.findUnique({
-    where: { id: transferId },
-    include: {
-      product: true,
-    },
-  })
+  const response = await shopflowApi.post<{ success: boolean; data: unknown; error?: string }>(
+    `/inventory-transfers/${transferId}/complete`
+  )
 
-  if (!transfer) {
-    throw new ApiError(404, 'Transfer not found', ErrorCodes.NOT_FOUND)
+  if (!response.success) {
+    if (response.error?.includes('not found')) {
+      throw new ApiError(404, 'Transfer not found', ErrorCodes.NOT_FOUND)
+    }
+    throw new ApiError(400, response.error || 'Error al completar transferencia', ErrorCodes.VALIDATION_ERROR)
   }
 
-  if (transfer.status !== 'PENDING' && transfer.status !== 'IN_TRANSIT') {
-    throw new ApiError(400, 'Transfer already completed or cancelled', ErrorCodes.VALIDATION_ERROR)
-  }
-
-  // Find or create product in destination store
-  const destinationProduct = await prisma.product.findFirst({
-    where: {
-      sku: transfer.product.sku,
-      storeId: transfer.toStoreId,
-    },
-  })
-
-  if (destinationProduct) {
-    // Update existing product stock
-    await prisma.product.update({
-      where: { id: destinationProduct.id },
-      data: {
-        stock: {
-          increment: transfer.quantity,
-        },
-      },
-    })
-  } else {
-    // Create product in destination store
-    await prisma.product.create({
-      data: {
-        name: transfer.product.name,
-        description: transfer.product.description,
-        sku: transfer.product.sku + `-${transfer.toStoreId}`, // Unique SKU per store
-        barcode: transfer.product.barcode,
-        price: transfer.product.price,
-        cost: transfer.product.cost,
-        stock: transfer.quantity,
-        minStock: transfer.product.minStock,
-        categoryId: transfer.product.categoryId,
-        supplierId: transfer.product.supplierId,
-        storeId: transfer.toStoreId,
-        active: transfer.product.active,
-      },
-    })
-  }
-
-  // Update transfer status
-  return prisma.inventoryTransfer.update({
-    where: { id: transferId },
-    data: {
-      status: 'COMPLETED',
-      completedAt: new Date(),
-    },
-    include: {
-      fromStore: true,
-      toStore: true,
-      product: true,
-    },
-  })
+  return response.data
 }
 
 /**
- * Cancel a transfer (restore stock to source store)
+ * Cancel a transfer (via API)
  */
 export async function cancelTransfer(transferId: string) {
-  const transfer = await prisma.inventoryTransfer.findUnique({
-    where: { id: transferId },
-  })
+  const response = await shopflowApi.post<{ success: boolean; data: unknown; error?: string }>(
+    `/inventory-transfers/${transferId}/cancel`
+  )
 
-  if (!transfer) {
-    throw new ApiError(404, 'Transfer not found', ErrorCodes.NOT_FOUND)
+  if (!response.success) {
+    if (response.error?.includes('not found')) {
+      throw new ApiError(404, 'Transfer not found', ErrorCodes.NOT_FOUND)
+    }
+    throw new ApiError(400, response.error || 'Error al cancelar transferencia', ErrorCodes.VALIDATION_ERROR)
   }
 
-  if (transfer.status === 'COMPLETED') {
-    throw new ApiError(400, 'Cannot cancel completed transfer', ErrorCodes.VALIDATION_ERROR)
-  }
-
-  if (transfer.status === 'CANCELLED') {
-    throw new ApiError(400, 'Transfer already cancelled', ErrorCodes.VALIDATION_ERROR)
-  }
-
-  // Restore stock to source store
-  await prisma.product.update({
-    where: { id: transfer.productId },
-    data: {
-      stock: {
-        increment: transfer.quantity,
-      },
-    },
-  })
-
-  // Update transfer status
-  return prisma.inventoryTransfer.update({
-    where: { id: transferId },
-    data: {
-      status: 'CANCELLED',
-    },
-  })
+  return response.data
 }
 
 /**
- * Get transfers with filters
+ * Get transfers with filters (via API)
  */
 export async function getTransfers(filters: {
   fromStoreId?: string
@@ -193,65 +96,25 @@ export async function getTransfers(filters: {
   page?: number
   limit?: number
 } = {}) {
-  const {
-    fromStoreId,
-    toStoreId,
-    productId,
-    status,
-    page = 1,
-    limit = 20,
-  } = filters
+  const params = new URLSearchParams()
+  if (filters.fromStoreId) params.append('fromStoreId', filters.fromStoreId)
+  if (filters.toStoreId) params.append('toStoreId', filters.toStoreId)
+  if (filters.productId) params.append('productId', filters.productId)
+  if (filters.status) params.append('status', filters.status)
+  params.append('page', String(filters.page ?? 1))
+  params.append('limit', String(filters.limit ?? 20))
 
-  const skip = (page - 1) * limit
+  const response = await shopflowApi.get<{
+    success: boolean
+    data?: { transfers: unknown[]; pagination: { page: number; limit: number; total: number; totalPages: number } }
+  }>(`/inventory-transfers?${params.toString()}`)
 
-  const where: {
-    fromStoreId?: string
-    toStoreId?: string
-    productId?: string
-    status?: TransferStatus
-  } = {}
-
-  if (fromStoreId) where.fromStoreId = fromStoreId
-  if (toStoreId) where.toStoreId = toStoreId
-  if (productId) where.productId = productId
-  if (status) where.status = status
-
-  const [transfers, total] = await Promise.all([
-    prisma.inventoryTransfer.findMany({
-      where,
-      include: {
-        fromStore: true,
-        toStore: true,
-        product: {
-          select: {
-            id: true,
-            name: true,
-            sku: true,
-          },
-        },
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit,
-    }),
-    prisma.inventoryTransfer.count({ where }),
-  ])
-
-  return {
-    transfers,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
+  if (!response.success || !response.data) {
+    return {
+      transfers: [],
+      pagination: { page: filters.page ?? 1, limit: filters.limit ?? 20, total: 0, totalPages: 0 },
+    }
   }
-}
 
+  return response.data
+}

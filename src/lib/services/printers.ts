@@ -100,7 +100,7 @@ export function savePrinter(printer: Omit<PrinterInfo, 'id' | 'isDefault' | 'det
   const printers = getSavedPrinters()
   const newPrinter: PrinterInfo = {
     ...printer,
-    id: printer.id || `manual-${Date.now()}`,
+    id: `manual-${Date.now()}`,
     isDefault: false,
     detected: false,
   }

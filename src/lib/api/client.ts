@@ -63,7 +63,6 @@ class ApiClient {
 
 // Unified API Client
 export const apiClient = new ApiClient(API_URL)
-const _apiClient = apiClient
 
 // ShopFlow API Client (uses /api/shopflow prefix)
 export const shopflowApi = {
@@ -87,6 +86,11 @@ export interface ApiResponse<T> {
   message?: string
   success: boolean
 }
+
+/** Result type for endpoints that return { success, data? } or { success: false, error } */
+export type ApiResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string; data?: T }
 
 export interface PaginatedResponse<T> {
   data: T[]

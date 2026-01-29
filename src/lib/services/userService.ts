@@ -1,6 +1,5 @@
-import { apiClient } from '@/lib/api/client'
+import { apiClient, type ApiResult } from '@/lib/api/client'
 import { ApiError, ErrorCodes } from '@/lib/utils/errors'
-import { UserRole } from '@/types'
 import type { CreateUserInput, UpdateUserInput, UserQueryInput } from '@/lib/validations/user'
 
 export async function getUsers(query: UserQueryInput = { page: 1, limit: 20 }) {
@@ -16,7 +15,7 @@ export async function getUsers(query: UserQueryInput = { page: 1, limit: 20 }) {
 
   // Note: The current /api/users endpoint doesn't support pagination/filters yet
   // This is a simplified version that gets all active users
-  const response = await apiClient.get<{ success: boolean; data: any[] }>('/api/users')
+  const response = await apiClient.get<ApiResult<any[]>>('/api/users')
 
   if (!response.success) {
     throw new ApiError(500, response.error || 'Error al obtener usuarios', ErrorCodes.INTERNAL_ERROR)

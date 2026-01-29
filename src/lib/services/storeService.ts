@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { shopflowApi } from '@/lib/api/client'
 import { ApiError, ErrorCodes } from '@/lib/utils/errors'
 
 export interface CreateStoreInput {
@@ -21,125 +21,101 @@ export interface UpdateStoreInput {
 }
 
 /**
- * Get all stores
+ * Get all stores (via API)
  */
 export async function getStores(includeInactive = false) {
-  return prisma.store.findMany({
-    where: includeInactive ? {} : { active: true },
-    orderBy: { name: 'asc' },
-  })
+  const response = await shopflowApi.get<{ success: boolean; data: unknown[]; error?: string }>(
+    `/stores?includeInactive=${includeInactive}`
+  )
+
+  if (!response.success) {
+    throw new ApiError(500, response.error || 'Error al obtener tiendas', ErrorCodes.INTERNAL_ERROR)
+  }
+
+  return response.data
 }
 
 /**
- * Get store by ID
+ * Get store by ID (via API)
  */
 export async function getStoreById(storeId: string) {
-  const store = await prisma.store.findUnique({
-    where: { id: storeId },
-  })
+  const response = await shopflowApi.get<{ success: boolean; data: unknown; error?: string }>(
+    `/stores/${storeId}`
+  )
 
-  if (!store) {
-    throw new ApiError(404, 'Store not found', ErrorCodes.NOT_FOUND)
+  if (!response.success || !response.data) {
+    throw new ApiError(404, response.error || 'Store not found', ErrorCodes.NOT_FOUND)
   }
 
-  return store
+  return response.data
 }
 
 /**
- * Get store by code
+ * Get store by code (via API)
  */
 export async function getStoreByCode(code: string) {
-  const store = await prisma.store.findUnique({
-    where: { code },
-  })
+  const response = await shopflowApi.get<{ success: boolean; data: unknown; error?: string }>(
+    `/stores/by-code/${encodeURIComponent(code)}`
+  )
 
-  if (!store) {
-    throw new ApiError(404, 'Store not found', ErrorCodes.NOT_FOUND)
+  if (!response.success || !response.data) {
+    throw new ApiError(404, response.error || 'Store not found', ErrorCodes.NOT_FOUND)
   }
 
-  return store
+  return response.data
 }
 
 /**
- * Create a new store
+ * Create a new store (via API)
  */
 export async function createStore(data: CreateStoreInput) {
-  // Check if code already exists
-  const existing = await prisma.store.findUnique({
-    where: { code: data.code },
-  })
+  const response = await shopflowApi.post<{ success: boolean; data: unknown; error?: string }>(
+    '/stores',
+    data
+  )
 
-  if (existing) {
-    throw new ApiError(409, 'Store code already exists', ErrorCodes.CONFLICT)
+  if (!response.success) {
+    if (response.error?.toLowerCase().includes('already exists') || response.error?.toLowerCase().includes('code')) {
+      throw new ApiError(409, response.error || 'Store code already exists', ErrorCodes.CONFLICT)
+    }
+    throw new ApiError(400, response.error || 'Error al crear tienda', ErrorCodes.VALIDATION_ERROR)
   }
 
-  return prisma.store.create({
-    data: {
-      name: data.name,
-      code: data.code,
-      address: data.address,
-      phone: data.phone,
-      email: data.email,
-      taxId: data.taxId,
-    },
-  })
+  return response.data
 }
 
 /**
- * Update store
+ * Update store (via API)
  */
 export async function updateStore(storeId: string, data: UpdateStoreInput) {
-  const store = await getStoreById(storeId)
+  const response = await shopflowApi.put<{ success: boolean; data: unknown; error?: string }>(
+    `/stores/${storeId}`,
+    data
+  )
 
-  // Check if code is being changed and if it conflicts
-  if (data.code && data.code !== store.code) {
-    const existing = await prisma.store.findUnique({
-      where: { code: data.code },
-    })
-
-    if (existing) {
-      throw new ApiError(409, 'Store code already exists', ErrorCodes.CONFLICT)
+  if (!response.success) {
+    if (response.error?.toLowerCase().includes('already exists')) {
+      throw new ApiError(409, response.error || 'Store code already exists', ErrorCodes.CONFLICT)
     }
+    throw new ApiError(400, response.error || 'Error al actualizar tienda', ErrorCodes.VALIDATION_ERROR)
   }
 
-  return prisma.store.update({
-    where: { id: storeId },
-    data: {
-      name: data.name,
-      code: data.code,
-      address: data.address,
-      phone: data.phone,
-      email: data.email,
-      taxId: data.taxId,
-      active: data.active,
-    },
-  })
+  return response.data
 }
 
 /**
- * Delete store (soft delete by setting active to false)
+ * Delete store (via API, soft or hard delete)
  */
 export async function deleteStore(storeId: string) {
-  // Validate store exists
   await getStoreById(storeId)
 
-  // Check if store has products or sales
-  const [productCount, saleCount] = await Promise.all([
-    prisma.product.count({ where: { storeId } }),
-    prisma.sale.count({ where: { storeId } }),
-  ])
+  const response = await shopflowApi.delete<{ success: boolean; data: unknown; error?: string }>(
+    `/stores/${storeId}`
+  )
 
-  if (productCount > 0 || saleCount > 0) {
-    // Soft delete
-    return prisma.store.update({
-      where: { id: storeId },
-      data: { active: false },
-    })
+  if (!response.success) {
+    throw new ApiError(500, response.error || 'Error al eliminar tienda', ErrorCodes.INTERNAL_ERROR)
   }
 
-  // Hard delete if no dependencies
-  return prisma.store.delete({
-    where: { id: storeId },
-  })
+  return response.data
 }
-

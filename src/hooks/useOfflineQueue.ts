@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { offlineQueue, type OfflineQueueItem, type QueueStatus } from '@/lib/services/offlineQueue'
+import { offlineQueue, type OfflineQueueItem } from '@/lib/services/offlineQueue'
 
 export interface UseOfflineQueueReturn {
   items: OfflineQueueItem[]

@@ -14,7 +14,6 @@ import {
   type PrinterInfo,
 } from '@/lib/services/printers'
 import { isWebSerialAvailable } from '@/lib/utils/printerDetection'
-import type { PrinterType } from '@/lib/utils/printerDetection'
 
 export function usePrinters() {
   const [printers, setPrinters] = useState<PrinterInfo[]>([])

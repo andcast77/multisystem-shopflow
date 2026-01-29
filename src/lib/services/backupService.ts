@@ -2,7 +2,7 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import { writeFile, mkdir, access } from 'fs/promises'
 import { join } from 'path'
-import { prisma } from '@/lib/prisma'
+import { shopflowApi } from '@/lib/api/client'
 import { format } from 'date-fns'
 
 const execAsync = promisify(exec)
@@ -124,59 +124,20 @@ export async function restoreDatabaseBackup(filename: string): Promise<void> {
 }
 
 /**
- * Export all data to JSON format
+ * Export all data to JSON format (via API)
  */
 export async function exportDataToJson(): Promise<BackupMetadata> {
   await ensureBackupDir()
 
+  const response = await shopflowApi.get<{ success: boolean; data?: unknown }>('/export/json')
+  if (!response.success || !response.data) {
+    throw new Error('Data export is only available via the API. Use the backend export endpoint.')
+  }
+
   const timestamp = format(new Date(), 'yyyy-MM-dd_HH-mm-ss')
   const filename = `data_export_${timestamp}.json`
   const filepath = join(BACKUP_DIR, filename)
-
-  // Export all data
-  const data = {
-    users: await prisma.user.findMany({
-      include: {
-        sales: false,
-        actionHistory: false,
-        sessions: false,
-        notifications: false,
-        notificationPreferences: true,
-        pushSubscriptions: false, // Don't export push subscriptions
-      },
-    }),
-    products: await prisma.product.findMany({
-      include: {
-        category: true,
-        supplier: true,
-      },
-    }),
-    categories: await prisma.category.findMany(),
-    suppliers: await prisma.supplier.findMany(),
-    customers: await prisma.customer.findMany(),
-    sales: await prisma.sale.findMany({
-      include: {
-        items: true,
-        customer: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    }),
-    storeConfig: await prisma.storeConfig.findMany(),
-    loyaltyConfig: await prisma.loyaltyConfig.findMany(),
-    loyaltyPoints: await prisma.loyaltyPoint.findMany(),
-    actionHistory: await prisma.actionHistory.findMany({
-      take: 10000, // Limit to last 10k actions
-      orderBy: { createdAt: 'desc' },
-    }),
-  }
-
-  const jsonData = JSON.stringify(data, null, 2)
+  const jsonData = JSON.stringify(response.data, null, 2)
   await writeFile(filepath, jsonData, 'utf-8')
 
   const stats = await import('fs/promises').then((fs) => fs.stat(filepath))
@@ -193,39 +154,24 @@ export async function exportDataToJson(): Promise<BackupMetadata> {
 }
 
 /**
- * Export specific table to CSV
+ * Export specific table to CSV (via API)
  */
 export async function exportTableToCsv(tableName: string): Promise<BackupMetadata> {
   await ensureBackupDir()
+
+  const response = await shopflowApi.get<{ success: boolean; data?: { rows: unknown[]; headers: string[] } }>(
+    `/export/csv?table=${encodeURIComponent(tableName)}`
+  )
+  if (!response.success || !response.data) {
+    throw new Error(`Export for table "${tableName}" is only available via the API.`)
+  }
 
   const timestamp = format(new Date(), 'yyyy-MM-dd_HH-mm-ss')
   const filename = `export_${tableName}_${timestamp}.csv`
   const filepath = join(BACKUP_DIR, filename)
 
-  // Map table names to Prisma models
-  let data: unknown[] = []
-  let headers: string[] = []
-
-  switch (tableName) {
-    case 'products':
-      data = await prisma.product.findMany({
-        include: { category: true, supplier: true },
-      })
-      headers = ['id', 'name', 'sku', 'barcode', 'price', 'cost', 'stock', 'minStock', 'category', 'supplier', 'active']
-      break
-    case 'sales':
-      data = await prisma.sale.findMany({
-        include: { customer: true, user: { select: { name: true, email: true } } },
-      })
-      headers = ['id', 'invoiceNumber', 'customer', 'user', 'status', 'subtotal', 'tax', 'discount', 'total', 'createdAt']
-      break
-    case 'customers':
-      data = await prisma.customer.findMany()
-      headers = ['id', 'name', 'email', 'phone', 'address', 'city', 'state', 'postalCode', 'country', 'createdAt']
-      break
-    default:
-      throw new Error(`Unsupported table: ${tableName}`)
-  }
+  const data = response.data.rows
+  const headers = response.data.headers
 
   // Convert to CSV
   const csvRows: string[] = []

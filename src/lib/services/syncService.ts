@@ -594,9 +594,9 @@ class SyncService {
   /**
    * Sync products from server with incremental sync and conflict resolution
    */
-  private async syncProducts(incremental: boolean = true): Promise<{ products: Product[]; conflicts: Conflict[] }> {
+  private async syncProducts(_incremental: boolean = true): Promise<{ products: Product[]; conflicts: Conflict[] }> {
     try {
-      const metadata = await offlineStorage.getSyncMetadata()
+      await offlineStorage.getSyncMetadata()
       // Note: Endpoint doesn't support 'since' parameter yet, so we sync all products
       // Limit is max 100 per the API schema, so we'll fetch in pages
       const limit = 100
@@ -757,7 +757,8 @@ class SyncService {
   private async syncCategories(incremental: boolean = true): Promise<{ categories: Category[]; conflicts: Conflict[] }> {
     try {
       const metadata = await offlineStorage.getSyncMetadata()
-      const lastSync = incremental ? metadata.lastCategorySync : null
+      const _lastSync = incremental ? metadata.lastCategorySync : null
+      void _lastSync
       
       const response = await fetch('/api/categories')
       if (!response.ok) {
@@ -830,7 +831,7 @@ class SyncService {
   /**
    * Sync customers from server with incremental sync and conflict resolution
    */
-  private async syncCustomers(incremental: boolean = true): Promise<{ customers: Customer[]; conflicts: Conflict[] }> {
+  private async syncCustomers(_incremental: boolean = true): Promise<{ customers: Customer[]; conflicts: Conflict[] }> {
     try {
       // Note: Endpoint doesn't support 'since' parameter yet, so we sync all customers
       // Fetch all customers (assuming endpoint supports pagination or returns all)
@@ -915,7 +916,8 @@ class SyncService {
   private async syncSuppliers(incremental: boolean = true): Promise<{ suppliers: Supplier[]; conflicts: Conflict[] }> {
     try {
       const metadata = await offlineStorage.getSyncMetadata()
-      const lastSync = incremental ? metadata.lastSupplierSync : null
+      const _lastSync = incremental ? metadata.lastSupplierSync : null
+      void _lastSync
       
       const response = await fetch('/api/suppliers')
       if (!response.ok) {
@@ -1135,16 +1137,16 @@ class SyncService {
     // Save to appropriate store
     switch (conflict.type) {
       case 'product':
-        await offlineStorage.saveProduct(updated as Product)
+        await offlineStorage.saveProduct(updated as unknown as Product)
         break
       case 'category':
-        await offlineStorage.saveCategory(updated as Category)
+        await offlineStorage.saveCategory(updated as unknown as Category)
         break
       case 'customer':
-        await offlineStorage.saveCustomer(updated as Customer)
+        await offlineStorage.saveCustomer(updated as unknown as Customer)
         break
       case 'supplier':
-        await offlineStorage.saveSupplier(updated as Supplier)
+        await offlineStorage.saveSupplier(updated as unknown as Supplier)
         break
     }
   }

@@ -1,14 +1,16 @@
-import { prisma } from '@/lib/prisma'
+import { shopflowApi } from '@/lib/api/client'
 import { sendNotification } from './notificationService'
 import { NotificationType, NotificationPriority } from '@/types'
 
+interface PendingSale {
+  id: string
+  total: number
+  createdAt: string
+  user?: { name: string }
+}
+
 /**
- * Check for pending tasks and send reminders
- * Pending tasks include:
- * - Products with stock below minimum (already handled by low stock alerts)
- * - Pending sales that need attention
- * - Incomplete inventory adjustments
- * - Overdue customer follow-ups
+ * Check for pending tasks and send reminders (via API)
  */
 export async function checkPendingTasks(): Promise<number> {
   const notificationsSent = await Promise.all([
@@ -20,50 +22,28 @@ export async function checkPendingTasks(): Promise<number> {
   return notificationsSent.reduce((total, count) => total + count, 0)
 }
 
-/**
- * Check for pending sales that might need attention
- */
 async function checkPendingSales(): Promise<number> {
-  // Find sales that have been pending for more than 30 minutes
+  const salesResponse = await shopflowApi.get<{ success: boolean; data?: { sales?: PendingSale[] } }>(
+    '/sales?status=PENDING'
+  )
+  const salesData = salesResponse.success && salesResponse.data?.sales ? salesResponse.data.sales : []
   const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000)
-
-  const pendingSales = await prisma.sale.findMany({
-    where: {
-      status: 'PENDING',
-      createdAt: {
-        lt: thirtyMinutesAgo,
-      },
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
-  })
+  const pendingSales = salesData.filter((sale: PendingSale) => new Date(sale.createdAt) < thirtyMinutesAgo)
 
   if (pendingSales.length === 0) {
     return 0
   }
 
-  // Get supervisors and admins
-  const supervisors = await prisma.user.findMany({
-    where: {
-      active: true,
-      role: 'SUPERVISOR',
-    },
-    include: {
-      notificationPreferences: true,
-    },
-  })
+  const usersResponse = await shopflowApi.get<{ success: boolean; data?: Array<{ id: string; notificationPreferences?: { inAppPendingTasks?: boolean } }> }>(
+    '/users/notify-recipients?role=SUPERVISOR'
+  )
+  const supervisors = usersResponse.success && usersResponse.data ? usersResponse.data : []
 
   let notificationsSent = 0
 
   for (const supervisor of supervisors) {
     const preferences = supervisor.notificationPreferences
-    if (!preferences?.inAppPendingTasks) {
+    if (preferences && preferences.inAppPendingTasks === false) {
       continue
     }
 
@@ -74,15 +54,15 @@ async function checkPendingSales(): Promise<number> {
       title: 'Ventas pendientes requieren atención',
       message: `${pendingSales.length} venta(s) han estado pendientes por más de 30 minutos`,
       data: {
-        pendingSales: pendingSales.map(sale => ({
+        pendingSales: pendingSales.map((sale: PendingSale) => ({
           id: sale.id,
-          user: sale.user.name,
+          user: sale.user?.name,
           total: sale.total,
           createdAt: sale.createdAt,
         })),
       },
       actionUrl: '/sales?status=pending',
-      expiresAt: new Date(Date.now() + 4 * 60 * 60 * 1000), // Expires in 4 hours
+      expiresAt: new Date(Date.now() + 4 * 60 * 60 * 1000),
     })
 
     notificationsSent++
@@ -91,41 +71,26 @@ async function checkPendingSales(): Promise<number> {
   return notificationsSent
 }
 
-/**
- * Check for unprocessed inventory adjustments
- */
 async function checkUnprocessedInventory(): Promise<number> {
-  // For now, we'll check for products that have been inactive for a while
-  // In a full implementation, this would check for pending inventory adjustments
-  const inactiveProducts = await prisma.product.count({
-    where: {
-      active: false,
-      updatedAt: {
-        lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Updated more than a week ago
-      },
-    },
-  })
+  const countResponse = await shopflowApi.get<{ success: boolean; data?: { count?: number } }>(
+    '/products/inactive-count'
+  )
+  const inactiveProducts = countResponse.success && countResponse.data?.count != null ? countResponse.data.count : 0
 
   if (inactiveProducts === 0) {
     return 0
   }
 
-  // Get admins
-  const admins = await prisma.user.findMany({
-    where: {
-      active: true,
-      role: 'ADMIN',
-    },
-    include: {
-      notificationPreferences: true,
-    },
-  })
+  const usersResponse = await shopflowApi.get<{ success: boolean; data?: Array<{ id: string; notificationPreferences?: { inAppPendingTasks?: boolean } }> }>(
+    '/users/notify-recipients?role=ADMIN'
+  )
+  const admins = usersResponse.success && usersResponse.data ? usersResponse.data : []
 
   let notificationsSent = 0
 
   for (const admin of admins) {
     const preferences = admin.notificationPreferences
-    if (!preferences?.inAppPendingTasks) {
+    if (preferences && preferences.inAppPendingTasks === false) {
       continue
     }
 
@@ -139,7 +104,7 @@ async function checkUnprocessedInventory(): Promise<number> {
         inactiveProductsCount: inactiveProducts,
       },
       actionUrl: '/products?status=inactive',
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Expires in 7 days
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     })
 
     notificationsSent++
@@ -148,22 +113,12 @@ async function checkUnprocessedInventory(): Promise<number> {
   return notificationsSent
 }
 
-/**
- * Check for overdue tasks (placeholder for future features)
- */
 async function checkOverdueTasks(): Promise<number> {
-  // This is a placeholder for future features like:
-  // - Customer follow-ups
-  // - Scheduled maintenance
-  // - Pending supplier orders
-  // - Expiring product warranties
-
-  // For now, return 0
   return 0
 }
 
 /**
- * Send reminder for a specific pending task
+ * Send reminder for a specific pending task (via API)
  */
 export async function sendPendingTaskReminder(
   userId: string,
@@ -172,12 +127,10 @@ export async function sendPendingTaskReminder(
   actionUrl?: string,
   data?: Record<string, unknown>
 ): Promise<void> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      notificationPreferences: true,
-    },
-  })
+  const userResponse = await shopflowApi.get<{ success: boolean; data?: { notificationPreferences?: { inAppPendingTasks?: boolean } } }>(
+    `/users/${userId}/notification-preferences`
+  )
+  const user = userResponse.success ? userResponse.data : null
 
   if (!user?.notificationPreferences?.inAppPendingTasks) {
     return
@@ -191,6 +144,6 @@ export async function sendPendingTaskReminder(
     message,
     data,
     actionUrl,
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // Expires in 24 hours
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
   })
 }

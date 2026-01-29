@@ -1,8 +1,8 @@
-import { shopflowApi } from '@/lib/api/client'
+import { shopflowApi, type ApiResult } from '@/lib/api/client'
 import type { UpdateUserPreferencesInput } from '@/lib/validations/userPreferences'
 
 export async function getUserPreferences(userId: string) {
-  const response = await shopflowApi.get<{ success: boolean; data: any }>(
+  const response = await shopflowApi.get<ApiResult<any>>(
     `/api/user-preferences/${userId}`
   )
 
@@ -17,7 +17,7 @@ export async function updateUserPreferences(
   userId: string,
   data: UpdateUserPreferencesInput
 ) {
-  const response = await shopflowApi.put<{ success: boolean; data: any; error?: string }>(
+  const response = await shopflowApi.put<ApiResult<any>>(
     `/api/user-preferences/${userId}`,
     data
   )

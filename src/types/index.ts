@@ -61,6 +61,9 @@ export enum ActionType {
   UPDATE = 'UPDATE',
   DELETE = 'DELETE',
   VIEW = 'VIEW',
+  LOGIN = 'LOGIN',
+  LOGOUT = 'LOGOUT',
+  CONFIGURE = 'CONFIGURE',
 }
 
 export enum EntityType {
@@ -97,6 +100,8 @@ export interface Product {
   categoryId: string | null
   barcode: string | null
   sku: string | null
+  supplierId?: string | null
+  storeId?: string | null
   active: boolean
   createdAt: Date
   updatedAt: Date
@@ -125,6 +130,9 @@ export interface Customer {
   loyaltyPoints: number
   createdAt: Date
   updatedAt: Date
+  /** Sync metadata (IndexedDB/offline only) */
+  lastSyncedAt?: number
+  localModifiedAt?: number
 }
 
 export interface Sale {
@@ -210,6 +218,8 @@ export interface Supplier {
   address: string | null
   city: string | null
   state: string | null
+  postalCode: string | null
+  country: string | null
   contactPerson: string | null
   active: boolean
   createdAt: Date

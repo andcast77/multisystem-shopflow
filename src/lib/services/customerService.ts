@@ -1,4 +1,4 @@
-import { shopflowApi } from '@/lib/api/client'
+import { shopflowApi, type ApiResult } from '@/lib/api/client'
 import { ApiError, ErrorCodes } from '@/lib/utils/errors'
 import type { CreateCustomerInput, UpdateCustomerInput, CustomerQueryInput } from '@/lib/validations/customer'
 
@@ -11,7 +11,7 @@ export async function getCustomers(query: CustomerQueryInput = {}) {
   if (email) params.append('email', email)
   if (phone) params.append('phone', phone)
 
-  const response = await shopflowApi.get<{ success: boolean; data: any[] }>(
+  const response = await shopflowApi.get<ApiResult<any[]>>(
     `/api/customers?${params.toString()}`
   )
 
@@ -23,7 +23,7 @@ export async function getCustomers(query: CustomerQueryInput = {}) {
 }
 
 export async function getCustomerById(id: string) {
-  const response = await shopflowApi.get<{ success: boolean; data: any; error?: string }>(
+  const response = await shopflowApi.get<ApiResult<any>>(
     `/api/customers/${id}`
   )
 
@@ -36,7 +36,7 @@ export async function getCustomerById(id: string) {
 
 export async function searchCustomers(searchTerm: string, limit = 10) {
   const params = new URLSearchParams({ search: searchTerm })
-  const response = await shopflowApi.get<{ success: boolean; data: any[] }>(
+  const response = await shopflowApi.get<ApiResult<any[]>>(
     `/api/customers?${params.toString()}`
   )
 
@@ -54,7 +54,7 @@ export async function searchCustomers(searchTerm: string, limit = 10) {
 }
 
 export async function createCustomer(data: CreateCustomerInput) {
-  const response = await shopflowApi.post<{ success: boolean; data: any; error?: string }>(
+  const response = await shopflowApi.post<ApiResult<any>>(
     '/api/customers',
     data
   )
@@ -67,7 +67,7 @@ export async function createCustomer(data: CreateCustomerInput) {
 }
 
 export async function updateCustomer(id: string, data: UpdateCustomerInput) {
-  const response = await shopflowApi.put<{ success: boolean; data: any; error?: string }>(
+  const response = await shopflowApi.put<ApiResult<any>>(
     `/api/customers/${id}`,
     data
   )
@@ -83,7 +83,7 @@ export async function updateCustomer(id: string, data: UpdateCustomerInput) {
 }
 
 export async function deleteCustomer(id: string) {
-  const response = await shopflowApi.delete<{ success: boolean; data?: any; error?: string }>(
+  const response = await shopflowApi.delete<ApiResult<any>>(
     `/api/customers/${id}`
   )
 

@@ -64,6 +64,8 @@ export interface Customer {
   postalCode?: string
   country?: string
   updatedAt: string
+  lastSyncedAt?: number
+  localModifiedAt?: number
 }
 
 export interface Supplier {
@@ -76,6 +78,7 @@ export interface Supplier {
   state?: string
   postalCode?: string
   country?: string
+  contactPerson?: string
   active: boolean
   updatedAt: string
   lastSyncedAt?: number

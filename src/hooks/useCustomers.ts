@@ -23,13 +23,13 @@ async function fetchCustomers(query?: CustomerQueryInput): Promise<Customer[]> {
           const transformedCustomers: OfflineCustomer[] = customers.map((customer: Customer) => ({
             id: customer.id,
             name: customer.name,
-            email: customer.email || undefined,
-            phone: customer.phone || undefined,
-            address: customer.address || undefined,
-            city: customer.city || undefined,
-            state: customer.state || undefined,
-            postalCode: customer.postalCode || undefined,
-            country: customer.country || undefined,
+            email: customer.email ?? undefined,
+            phone: customer.phone ?? undefined,
+            address: customer.address ?? undefined,
+            city: customer.city ?? undefined,
+            state: customer.state ?? undefined,
+            postalCode: customer.postalCode ?? undefined,
+            country: customer.country ?? undefined,
             updatedAt: customer.updatedAt.toISOString(),
           }))
           await offlineStorage.saveCustomers(transformedCustomers)
@@ -63,7 +63,7 @@ async function fetchCustomers(query?: CustomerQueryInput): Promise<Customer[]> {
     filtered = filtered.filter((c) => c.phone === query.phone)
   }
 
-  // Transform back to Prisma Customer format
+  // Transform back to Prisma Customer format (loyaltyPoints not in offline storage, default 0)
   return filtered.map((c) => ({
     id: c.id,
     name: c.name,
@@ -74,6 +74,7 @@ async function fetchCustomers(query?: CustomerQueryInput): Promise<Customer[]> {
     state: c.state || null,
     postalCode: c.postalCode || null,
     country: c.country || null,
+    loyaltyPoints: 0,
     createdAt: new Date(),
     updatedAt: new Date(c.updatedAt),
   }))
@@ -91,13 +92,13 @@ async function fetchCustomer(id: string): Promise<Customer> {
         const transformedCustomer: OfflineCustomer = {
           id: customer.id,
           name: customer.name,
-          email: customer.email || undefined,
-          phone: customer.phone || undefined,
-          address: customer.address || undefined,
-          city: customer.city || undefined,
-          state: customer.state || undefined,
-          postalCode: customer.postalCode || undefined,
-          country: customer.country || undefined,
+          email: customer.email ?? undefined,
+          phone: customer.phone ?? undefined,
+          address: customer.address ?? undefined,
+          city: customer.city ?? undefined,
+          state: customer.state ?? undefined,
+          postalCode: customer.postalCode ?? undefined,
+          country: customer.country ?? undefined,
           updatedAt: customer.updatedAt.toISOString(),
         }
         await offlineStorage.saveCustomer(transformedCustomer)
@@ -125,6 +126,7 @@ async function fetchCustomer(id: string): Promise<Customer> {
     state: offlineCustomer.state || null,
     postalCode: offlineCustomer.postalCode || null,
     country: offlineCustomer.country || null,
+    loyaltyPoints: 0,
     createdAt: new Date(),
     updatedAt: new Date(offlineCustomer.updatedAt),
   }
@@ -147,6 +149,7 @@ async function createCustomer(data: CreateCustomerInput): Promise<Customer> {
       state: data.state || null,
       postalCode: data.postalCode || null,
       country: data.country || null,
+      loyaltyPoints: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
@@ -156,13 +159,13 @@ async function createCustomer(data: CreateCustomerInput): Promise<Customer> {
       const transformedCustomer: OfflineCustomer = {
         id: tempId,
         name: tempCustomer.name,
-        email: tempCustomer.email || undefined,
-        phone: tempCustomer.phone || undefined,
-        address: tempCustomer.address || undefined,
-        city: tempCustomer.city || undefined,
-        state: tempCustomer.state || undefined,
-        postalCode: tempCustomer.postalCode || undefined,
-        country: tempCustomer.country || undefined,
+        email: tempCustomer.email ?? undefined,
+        phone: tempCustomer.phone ?? undefined,
+        address: tempCustomer.address ?? undefined,
+        city: tempCustomer.city ?? undefined,
+        state: tempCustomer.state ?? undefined,
+        postalCode: tempCustomer.postalCode ?? undefined,
+        country: tempCustomer.country ?? undefined,
         updatedAt: tempCustomer.updatedAt.toISOString(),
       }
       await offlineStorage.saveCustomer(transformedCustomer)
@@ -193,13 +196,13 @@ async function createCustomer(data: CreateCustomerInput): Promise<Customer> {
       const transformedCustomer: OfflineCustomer = {
         id: customer.id,
         name: customer.name,
-        email: customer.email || undefined,
-        phone: customer.phone || undefined,
-        address: customer.address || undefined,
-        city: customer.city || undefined,
-        state: customer.state || undefined,
-        postalCode: customer.postalCode || undefined,
-        country: customer.country || undefined,
+        email: customer.email ?? undefined,
+        phone: customer.phone ?? undefined,
+        address: customer.address ?? undefined,
+        city: customer.city ?? undefined,
+        state: customer.state ?? undefined,
+        postalCode: customer.postalCode ?? undefined,
+        country: customer.country ?? undefined,
         updatedAt: customer.updatedAt.toISOString(),
       }
       await offlineStorage.saveCustomer(transformedCustomer)
@@ -222,6 +225,7 @@ async function createCustomer(data: CreateCustomerInput): Promise<Customer> {
         state: data.state || null,
         postalCode: data.postalCode || null,
         country: data.country || null,
+        loyaltyPoints: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       }
@@ -230,13 +234,13 @@ async function createCustomer(data: CreateCustomerInput): Promise<Customer> {
         const transformedCustomer: OfflineCustomer = {
           id: tempId,
           name: tempCustomer.name,
-          email: tempCustomer.email || undefined,
-          phone: tempCustomer.phone || undefined,
-          address: tempCustomer.address || undefined,
-          city: tempCustomer.city || undefined,
-          state: tempCustomer.state || undefined,
-          postalCode: tempCustomer.postalCode || undefined,
-          country: tempCustomer.country || undefined,
+          email: tempCustomer.email ?? undefined,
+          phone: tempCustomer.phone ?? undefined,
+          address: tempCustomer.address ?? undefined,
+          city: tempCustomer.city ?? undefined,
+          state: tempCustomer.state ?? undefined,
+          postalCode: tempCustomer.postalCode ?? undefined,
+          country: tempCustomer.country ?? undefined,
           updatedAt: tempCustomer.updatedAt.toISOString(),
         }
         await offlineStorage.saveCustomer(transformedCustomer)
@@ -268,13 +272,13 @@ async function updateCustomer(id: string, data: UpdateCustomerInput): Promise<Cu
       const updatedCustomer: OfflineCustomer = {
         ...existingCustomer,
         name: data.name ?? existingCustomer.name,
-        email: data.email !== undefined ? data.email : existingCustomer.email,
-        phone: data.phone !== undefined ? data.phone : existingCustomer.phone,
-        address: data.address !== undefined ? data.address : existingCustomer.address,
-        city: data.city !== undefined ? data.city : existingCustomer.city,
-        state: data.state !== undefined ? data.state : existingCustomer.state,
-        postalCode: data.postalCode !== undefined ? data.postalCode : existingCustomer.postalCode,
-        country: data.country !== undefined ? data.country : existingCustomer.country,
+        email: (data.email !== undefined ? data.email : existingCustomer.email) ?? undefined,
+        phone: (data.phone !== undefined ? data.phone : existingCustomer.phone) ?? undefined,
+        address: (data.address !== undefined ? data.address : existingCustomer.address) ?? undefined,
+        city: (data.city !== undefined ? data.city : existingCustomer.city) ?? undefined,
+        state: (data.state !== undefined ? data.state : existingCustomer.state) ?? undefined,
+        postalCode: (data.postalCode !== undefined ? data.postalCode : existingCustomer.postalCode) ?? undefined,
+        country: (data.country !== undefined ? data.country : existingCustomer.country) ?? undefined,
         updatedAt: new Date().toISOString(),
       }
 
@@ -287,16 +291,17 @@ async function updateCustomer(id: string, data: UpdateCustomerInput): Promise<Cu
       return {
         id: updatedCustomer.id,
         name: updatedCustomer.name,
-        email: updatedCustomer.email || null,
-        phone: updatedCustomer.phone || null,
-        address: updatedCustomer.address || null,
-        city: updatedCustomer.city || null,
-        state: updatedCustomer.state || null,
-        postalCode: updatedCustomer.postalCode || null,
-        country: updatedCustomer.country || null,
+        email: updatedCustomer.email ?? null,
+        phone: updatedCustomer.phone ?? null,
+        address: updatedCustomer.address ?? null,
+        city: updatedCustomer.city ?? null,
+        state: updatedCustomer.state ?? null,
+        postalCode: updatedCustomer.postalCode ?? null,
+        country: updatedCustomer.country ?? null,
+        loyaltyPoints: 0,
         createdAt: new Date(),
         updatedAt: new Date(updatedCustomer.updatedAt),
-      }
+      } as import('@/types').Customer
     }
   }
 
@@ -320,14 +325,14 @@ async function updateCustomer(id: string, data: UpdateCustomerInput): Promise<Cu
       const transformedCustomer: OfflineCustomer = {
         id: customer.id,
         name: customer.name,
-        email: customer.email || undefined,
-        phone: customer.phone || undefined,
-        address: customer.address || undefined,
-        city: customer.city || undefined,
-        state: customer.state || undefined,
-        postalCode: customer.postalCode || undefined,
-        country: customer.country || undefined,
-        updatedAt: customer.updatedAt.toISOString(),
+        email: customer.email ?? undefined,
+        phone: customer.phone ?? undefined,
+        address: customer.address ?? undefined,
+        city: customer.city ?? undefined,
+        state: customer.state ?? undefined,
+        postalCode: customer.postalCode ?? undefined,
+        country: customer.country ?? undefined,
+        updatedAt: customer.updatedAt?.toISOString?.() ?? new Date().toISOString(),
       }
       await offlineStorage.saveCustomer(transformedCustomer)
     } catch (error) {
@@ -341,13 +346,13 @@ async function updateCustomer(id: string, data: UpdateCustomerInput): Promise<Cu
       const updatedCustomer: OfflineCustomer = {
         ...existingCustomer,
         name: data.name ?? existingCustomer.name,
-        email: data.email !== undefined ? data.email : existingCustomer.email,
-        phone: data.phone !== undefined ? data.phone : existingCustomer.phone,
-        address: data.address !== undefined ? data.address : existingCustomer.address,
-        city: data.city !== undefined ? data.city : existingCustomer.city,
-        state: data.state !== undefined ? data.state : existingCustomer.state,
-        postalCode: data.postalCode !== undefined ? data.postalCode : existingCustomer.postalCode,
-        country: data.country !== undefined ? data.country : existingCustomer.country,
+        email: (data.email !== undefined ? data.email : existingCustomer.email) ?? undefined,
+        phone: (data.phone !== undefined ? data.phone : existingCustomer.phone) ?? undefined,
+        address: (data.address !== undefined ? data.address : existingCustomer.address) ?? undefined,
+        city: (data.city !== undefined ? data.city : existingCustomer.city) ?? undefined,
+        state: (data.state !== undefined ? data.state : existingCustomer.state) ?? undefined,
+        postalCode: (data.postalCode !== undefined ? data.postalCode : existingCustomer.postalCode) ?? undefined,
+        country: (data.country !== undefined ? data.country : existingCustomer.country) ?? undefined,
         updatedAt: new Date().toISOString(),
       }
 
@@ -356,16 +361,17 @@ async function updateCustomer(id: string, data: UpdateCustomerInput): Promise<Cu
       return {
         id: updatedCustomer.id,
         name: updatedCustomer.name,
-        email: updatedCustomer.email || null,
-        phone: updatedCustomer.phone || null,
-        address: updatedCustomer.address || null,
-        city: updatedCustomer.city || null,
-        state: updatedCustomer.state || null,
-        postalCode: updatedCustomer.postalCode || null,
-        country: updatedCustomer.country || null,
+        email: updatedCustomer.email ?? null,
+        phone: updatedCustomer.phone ?? null,
+        address: updatedCustomer.address ?? null,
+        city: updatedCustomer.city ?? null,
+        state: updatedCustomer.state ?? null,
+        postalCode: updatedCustomer.postalCode ?? null,
+        country: updatedCustomer.country ?? null,
+        loyaltyPoints: 0,
         createdAt: new Date(),
         updatedAt: new Date(updatedCustomer.updatedAt),
-      }
+      } as import('@/types').Customer
     }
     throw error
   }

@@ -1,83 +1,49 @@
-import { prisma } from '@/lib/prisma'
+import { shopflowApi } from '@/lib/api/client'
 import { sendNotification } from './notificationService'
 import { NotificationType, NotificationPriority } from '@/types'
 
+interface SaleWithRelations {
+  id: string
+  total: number
+  invoiceNumber: string | null
+  paymentMethod: string | null
+  user?: { name: string }
+  customer?: { name: string }
+  items?: Array<{
+    product?: { name: string }
+    quantity: number
+    price: number
+    subtotal: number
+  }>
+}
+
 /**
- * Check for important sales and send notifications
- * Important sales are defined as:
- * - Sales above a certain amount
- * - Sales with high-value items
- * - First sale of the day
- * - Sales to new customers
+ * Check for important sales and send notifications (via API)
  */
 export async function checkImportantSaleAlerts(): Promise<number> {
-  // Default threshold for important sales, could be configurable from store config
   const importantSaleThreshold = 500
+  const startDate = new Date(Date.now() - 60 * 60 * 1000).toISOString()
 
-  // Find recent sales that might be important
-  const recentSales = await prisma.sale.findMany({
-    where: {
-      status: 'COMPLETED',
-      createdAt: {
-        gte: new Date(Date.now() - 60 * 60 * 1000), // Last hour
-      },
-      total: {
-        gte: importantSaleThreshold,
-      },
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      customer: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      items: {
-        include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-              price: true,
-            },
-          },
-        },
-      },
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  })
+  const salesResponse = await shopflowApi.get<{ success: boolean; data?: { sales?: SaleWithRelations[] } }>(
+    `/sales?status=COMPLETED&startDate=${startDate}&minTotal=${importantSaleThreshold}`
+  )
+  const recentSales = salesResponse.success && salesResponse.data?.sales ? salesResponse.data.sales : []
 
   if (recentSales.length === 0) {
     return 0
   }
 
-  // Get admin and supervisor users
-  const users = await prisma.user.findMany({
-    where: {
-      active: true,
-      role: {
-        in: ['ADMIN', 'SUPERVISOR'],
-      },
-    },
-    include: {
-      notificationPreferences: true,
-    },
-  })
+  const usersResponse = await shopflowApi.get<{ success: boolean; data?: Array<{ id: string; notificationPreferences?: { inAppImportantSales?: boolean } }> }>(
+    '/users/notify-recipients?role=ADMIN,SUPERVISOR'
+  )
+  const users = usersResponse.success && usersResponse.data ? usersResponse.data : []
 
   let notificationsSent = 0
 
   for (const sale of recentSales) {
     for (const user of users) {
       const preferences = user.notificationPreferences
-      if (!preferences?.inAppImportantSales) {
+      if (preferences && preferences.inAppImportantSales === false) {
         continue
       }
 
@@ -86,7 +52,7 @@ export async function checkImportantSaleAlerts(): Promise<number> {
         type: NotificationType.IMPORTANT_SALE,
         priority: NotificationPriority.MEDIUM,
         title: 'Venta importante registrada',
-        message: `Venta de $${sale.total.toFixed(2)} realizada por ${sale.user.name}${sale.customer ? ` a ${sale.customer.name}` : ''}`,
+        message: `Venta de $${sale.total.toFixed(2)} realizada por ${sale.user?.name ?? 'N/A'}${sale.customer ? ` a ${sale.customer.name}` : ''}`,
         data: {
           sale: {
             id: sale.id,
@@ -95,8 +61,8 @@ export async function checkImportantSaleAlerts(): Promise<number> {
             paymentMethod: sale.paymentMethod,
             user: sale.user,
             customer: sale.customer,
-            items: sale.items.map(item => ({
-              productName: item.product.name,
+            items: sale.items?.map((item: { product?: { name: string }; quantity: number; price: number; subtotal: number }) => ({
+              productName: item.product?.name,
               quantity: item.quantity,
               price: item.price,
               subtotal: item.subtotal,
@@ -104,7 +70,7 @@ export async function checkImportantSaleAlerts(): Promise<number> {
           },
         },
         actionUrl: `/sales/${sale.id}`,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // Expires in 24 hours
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       })
 
       notificationsSent++
@@ -115,64 +81,31 @@ export async function checkImportantSaleAlerts(): Promise<number> {
 }
 
 /**
- * Send alert for a specific important sale
+ * Send alert for a specific important sale (via API)
  */
 export async function sendImportantSaleAlert(saleId: string): Promise<void> {
-  const sale = await prisma.sale.findUnique({
-    where: { id: saleId },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      customer: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      items: {
-        include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-              price: true,
-            },
-          },
-        },
-      },
-    },
-  })
+  const saleResponse = await shopflowApi.get<{ success: boolean; data?: SaleWithRelations }>(
+    `/sales/${saleId}`
+  )
+  const sale = saleResponse.success ? saleResponse.data : null
 
   if (!sale) {
     return
   }
 
-  // Check if this sale meets "important" criteria
   const importantSaleThreshold = 500
   if (sale.total < importantSaleThreshold) {
     return
   }
 
-  // Get admin and supervisor users
-  const users = await prisma.user.findMany({
-    where: {
-      active: true,
-      role: {
-        in: ['ADMIN', 'SUPERVISOR'],
-      },
-    },
-    include: {
-      notificationPreferences: true,
-    },
-  })
+  const usersResponse = await shopflowApi.get<{ success: boolean; data?: Array<{ id: string; notificationPreferences?: { inAppImportantSales?: boolean } }> }>(
+    '/users/notify-recipients?role=ADMIN,SUPERVISOR'
+  )
+  const users = usersResponse.success && usersResponse.data ? usersResponse.data : []
 
   for (const user of users) {
     const preferences = user.notificationPreferences
-    if (!preferences?.inAppImportantSales) {
+    if (preferences && preferences.inAppImportantSales === false) {
       continue
     }
 
@@ -181,7 +114,7 @@ export async function sendImportantSaleAlert(saleId: string): Promise<void> {
       type: NotificationType.IMPORTANT_SALE,
       priority: NotificationPriority.MEDIUM,
       title: 'Venta importante registrada',
-      message: `Venta de $${sale.total.toFixed(2)} realizada por ${sale.user.name}${sale.customer ? ` a ${sale.customer.name}` : ''}`,
+      message: `Venta de $${sale.total.toFixed(2)} realizada por ${sale.user?.name ?? 'N/A'}${sale.customer ? ` a ${sale.customer.name}` : ''}`,
       data: {
         sale: {
           id: sale.id,
@@ -190,8 +123,8 @@ export async function sendImportantSaleAlert(saleId: string): Promise<void> {
           paymentMethod: sale.paymentMethod,
           user: sale.user,
           customer: sale.customer,
-          items: sale.items.map(item => ({
-            productName: item.product.name,
+          items: sale.items?.map((item: { product?: { name: string }; quantity: number; price: number; subtotal: number }) => ({
+            productName: item.product?.name,
             quantity: item.quantity,
             price: item.price,
             subtotal: item.subtotal,
@@ -199,7 +132,7 @@ export async function sendImportantSaleAlert(saleId: string): Promise<void> {
         },
       },
       actionUrl: `/sales/${sale.id}`,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // Expires in 24 hours
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     })
   }
 }

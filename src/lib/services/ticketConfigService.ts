@@ -1,12 +1,11 @@
-import { shopflowApi } from '@/lib/api/client'
+import { shopflowApi, type ApiResult } from '@/lib/api/client'
 import type { UpdateTicketConfigInput } from '@/lib/validations/ticketConfig'
-import { TicketType } from '@/types'
 
 export async function getTicketConfig(storeId?: string) {
   const params = storeId ? new URLSearchParams({ storeId }) : undefined
   const url = `/api/ticket-config${params ? `?${params.toString()}` : ''}`
   
-  const response = await shopflowApi.get<{ success: boolean; data: any }>(url)
+  const response = await shopflowApi.get<ApiResult<any>>(url)
 
   if (!response.success) {
     throw new Error(response.error || 'Error al obtener configuración de tickets')
@@ -22,7 +21,7 @@ export async function updateTicketConfig(
   const params = storeId ? new URLSearchParams({ storeId }) : undefined
   const url = `/api/ticket-config${params ? `?${params.toString()}` : ''}`
   
-  const response = await shopflowApi.put<{ success: boolean; data: any; error?: string }>(
+  const response = await shopflowApi.put<ApiResult<any>>(
     url,
     { ...data, storeId }
   )

@@ -10,6 +10,7 @@ export const createSupplierSchema = z.object({
   state: z.string().optional().nullable(),
   postalCode: z.string().optional().nullable(),
   country: z.string().optional().nullable(),
+  contactPerson: z.string().optional().nullable(),
   taxId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   active: z.boolean(),
