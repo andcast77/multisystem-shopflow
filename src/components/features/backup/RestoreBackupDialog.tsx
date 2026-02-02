@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Upload, AlertTriangle } from 'lucide-react'
+import { restoreBackup } from '@/lib/services/backupApiService'
 
 export function RestoreBackupDialog() {
   const [filename, setFilename] = useState('')
@@ -35,15 +36,7 @@ export function RestoreBackupDialog() {
 
     try {
       setIsRestoring(true)
-      const response = await fetch('/api/admin/backup/restore', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename }),
-      })
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to restore backup')
-      }
+      await restoreBackup(filename.trim())
       await queryClient.invalidateQueries({ queryKey: ['backups'] })
       alert('Base de datos restaurada exitosamente. La página se recargará.')
       window.location.reload()

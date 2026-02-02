@@ -2,8 +2,19 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { verifyToken } from '@/lib/auth-token'
 
+/** Decode token from cookie (login sets it with encodeURIComponent). */
+function getTokenFromCookie(request: NextRequest): string | null {
+  const raw = request.cookies.get('token')?.value
+  if (!raw) return null
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return raw
+  }
+}
+
 export function proxy(request: NextRequest) {
-  const token = request.cookies.get('token')?.value
+  const token = getTokenFromCookie(request)
 
   // Public routes that don't require authentication (defined but not used yet)
   // const publicRoutes = ['/login', '/api/auth/login']
@@ -77,14 +88,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }
 

@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { useQueryClient } from '@tanstack/react-query'
 import { useModuleAccess } from '@/hooks/usePermissions'
 import { useUser } from '@/hooks/useUser'
+import { useCompanies } from '@/hooks/useCompanies'
+import { authApi } from '@/lib/api/client'
 import { Module } from '@/lib/permissions'
 import {
   LayoutDashboard,
@@ -29,6 +32,13 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface NavItem {
   title: string
@@ -229,13 +239,15 @@ function NavGroupComponent({ group, pathname, onNavigate }: {
 }
 
 // Component for user avatar
-function UserAvatar({ name }: { name: string }) {
-  const initials = name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
+function UserAvatar({ name }: { name?: string }) {
+  const safeName = typeof name === 'string' ? name : ''
+  const initials =
+    safeName
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) || '?'
 
   return (
     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-sm">
@@ -261,24 +273,145 @@ function RoleBadge({ role }: { role: string }) {
   )
 }
 
+const SHOPFLOW_LAST_COMPANY_KEY = 'shopflow_last_company_id'
+const COMPANY_SELECT_PLACEHOLDER = '__none__'
+
 export function Sidebar() {
   const pathname = usePathname()
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const queryClient = useQueryClient()
+  const autoRestoreDone = useRef(false)
+  const autoSelectFirstDone = useRef(false)
+  const isChangingCompany = useRef(false)
   const { data: user, isLoading: isLoadingUser } = useUser()
+  const isSuperuser = user?.isSuperuser === true
+  const companiesQuery = useCompanies(!!user)
+  const allCompanies = companiesQuery.data ?? []
+  const companies =
+    isSuperuser ? allCompanies : allCompanies.filter((c) => c.shopflowEnabled)
+  const needCompanySelector =
+    !!user &&
+    (isSuperuser || !user.companyId || companies.length > 1)
+
+  useEffect(() => {
+    if (
+      typeof window === 'undefined' ||
+      autoRestoreDone.current ||
+      !user ||
+      user.companyId
+    )
+      return
+    if (!companiesQuery.isSuccess || !companiesQuery.data?.length) return
+    const savedId = localStorage.getItem(SHOPFLOW_LAST_COMPANY_KEY)
+    if (!savedId) return
+    const list = user.isSuperuser ? companiesQuery.data : companiesQuery.data.filter((c) => c.shopflowEnabled)
+    if (!list.some((c) => c.id === savedId)) return
+    autoRestoreDone.current = true
+    authApi
+      .post<{ success?: boolean; data?: { token: string }; error?: string }>(
+        '/context',
+        { companyId: savedId }
+      )
+      .then((res) => {
+        if (
+          res &&
+          typeof res === 'object' &&
+          'data' in res &&
+          res.success &&
+          res.data?.token
+        ) {
+          const maxAge = 60 * 60 * 24 * 7
+          document.cookie = `token=${encodeURIComponent(res.data.token)}; path=/; max-age=${maxAge}; SameSite=Lax`
+          void queryClient.invalidateQueries()
+        }
+      })
+      .catch(() => {})
+  }, [user, companiesQuery.isSuccess, companiesQuery.data, queryClient])
+
+  // Auto-select first company when no savedId and user has no companyId
+  useEffect(() => {
+    if (
+      typeof window === 'undefined' ||
+      autoSelectFirstDone.current ||
+      !user ||
+      user.companyId
+    )
+      return
+    if (!companiesQuery.isSuccess || !companies.length) return
+    const savedId = localStorage.getItem(SHOPFLOW_LAST_COMPANY_KEY)
+    if (savedId) return
+    autoSelectFirstDone.current = true
+    const firstId = companies[0].id
+    authApi
+      .post<{ success?: boolean; data?: { token: string }; error?: string }>(
+        '/context',
+        { companyId: firstId }
+      )
+      .then((res) => {
+        if (
+          res &&
+          typeof res === 'object' &&
+          'data' in res &&
+          res.success &&
+          res.data?.token
+        ) {
+          const maxAge = 60 * 60 * 24 * 7
+          document.cookie = `token=${encodeURIComponent(res.data.token)}; path=/; max-age=${maxAge}; SameSite=Lax`
+          try {
+            localStorage.setItem(SHOPFLOW_LAST_COMPANY_KEY, firstId)
+          } catch {
+            // ignore
+          }
+          void queryClient.invalidateQueries()
+        }
+      })
+      .catch(() => {
+        autoSelectFirstDone.current = false
+      })
+  }, [user, companiesQuery.isSuccess, companies, queryClient])
+
+  const handleCompanyChange = async (companyId: string) => {
+    if (companyId === COMPANY_SELECT_PLACEHOLDER || companyId === user?.companyId) return
+    if (isChangingCompany.current) return
+    isChangingCompany.current = true
+    try {
+      const res = await authApi.post<{
+        success?: boolean
+        data?: { token: string }
+        error?: string
+      }>('/context', { companyId })
+      if (
+        res &&
+        typeof res === 'object' &&
+        'data' in res &&
+        res.success &&
+        res.data?.token
+      ) {
+        try {
+          localStorage.setItem(SHOPFLOW_LAST_COMPANY_KEY, companyId)
+        } catch {
+          // ignore
+        }
+        const maxAge = 60 * 60 * 24 * 7
+        document.cookie = `token=${encodeURIComponent(res.data.token)}; path=/; max-age=${maxAge}; SameSite=Lax`
+        // Invalidar todas las queries para que productos, ventas, clientes, etc. se recarguen con la nueva empresa
+        await queryClient.invalidateQueries()
+      }
+    } catch {
+      // ignore
+    } finally {
+      isChangingCompany.current = false
+    }
+  }
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-    } catch (error) {
-      console.error('Logout error:', error)
-    } finally {
-      // Clear offline auth even if API call fails
-      if (typeof window !== 'undefined') {
-        const { clearOfflineAuth } = await import('@/lib/services/offlineAuth')
-        clearOfflineAuth()
-      }
-      window.location.href = '/login'
+      await authApi.post('/logout')
+    } catch {
+      // ignore
     }
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+    window.location.href = '/login'
   }
 
   const handleMobileClose = () => {
@@ -331,14 +464,53 @@ export function Sidebar() {
         role="navigation"
       >
         <div className="flex h-full flex-col">
-          {/* Header */}
-          <div className="flex h-16 items-center gap-3 border-b border-gray-200 px-6">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Store className="h-5 w-5" />
-            </div>
-            <div className="flex-1">
-              <h1 className="text-xl font-bold text-gray-900">ShopFlow POS</h1>
-            </div>
+          {/* Header: un solo control = desplegable de empresa (icono + texto dentro del selector) */}
+          <div className="border-b border-gray-200 px-4 py-3 min-w-0">
+            {needCompanySelector ? (
+              <Select
+                value={user?.companyId ?? COMPANY_SELECT_PLACEHOLDER}
+                onValueChange={handleCompanyChange}
+                disabled={companiesQuery.isLoading}
+              >
+                <SelectTrigger
+                  className="w-full h-11 pl-3 pr-3 text-left border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer gap-2"
+                  aria-label="Seleccionar empresa"
+                >
+                  <Store className="h-5 w-5 shrink-0 text-primary" />
+                  <span className="flex-1 truncate text-sm font-medium">
+                    <SelectValue
+                      placeholder={
+                        companiesQuery.isLoading
+                          ? 'Cargando empresas…'
+                          : companies.length === 0
+                            ? 'Sin empresas'
+                            : 'Selecciona una empresa'
+                      }
+                    />
+                  </span>
+                </SelectTrigger>
+                <SelectContent sideOffset={4} className="max-h-[min(16rem,70vh)]">
+                  {companies.length > 0 ? (
+                    companies.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="__none__" disabled>
+                      Sin empresas
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="flex items-center gap-2 min-h-11 px-1">
+                <Store className="h-5 w-5 shrink-0 text-primary" />
+                <h1 className="text-sm font-bold text-gray-900 truncate" title={user?.company?.name ?? undefined}>
+                  {user?.company?.name ?? '—'}
+                </h1>
+              </div>
+            )}
           </div>
 
           {/* Navigation */}

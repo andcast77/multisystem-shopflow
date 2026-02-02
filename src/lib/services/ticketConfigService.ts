@@ -3,7 +3,7 @@ import type { UpdateTicketConfigInput } from '@/lib/validations/ticketConfig'
 
 export async function getTicketConfig(storeId?: string) {
   const params = storeId ? new URLSearchParams({ storeId }) : undefined
-  const url = `/api/ticket-config${params ? `?${params.toString()}` : ''}`
+  const url = `/ticket-config${params ? `?${params.toString()}` : ''}`
   
   const response = await shopflowApi.get<ApiResult<any>>(url)
 
@@ -19,7 +19,7 @@ export async function updateTicketConfig(
   storeId?: string
 ) {
   const params = storeId ? new URLSearchParams({ storeId }) : undefined
-  const url = `/api/ticket-config${params ? `?${params.toString()}` : ''}`
+  const url = `/ticket-config${params ? `?${params.toString()}` : ''}`
   
   const response = await shopflowApi.put<ApiResult<any>>(
     url,

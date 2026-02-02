@@ -1,6 +1,36 @@
-import { apiClient, type ApiResult } from '@/lib/api/client'
+import { apiClient, companiesApi, type ApiResult } from '@/lib/api/client'
 import { ApiError, ErrorCodes } from '@/lib/utils/errors'
 import type { CreateUserInput, UpdateUserInput, UserQueryInput } from '@/lib/validations/user'
+
+/** Company members (usuarios de la empresa) - misma lista en Workify y Shopflow */
+export async function getCompanyMembers(companyId: string) {
+  const response = await companiesApi.getMembers<{ success: boolean; data: any[]; error?: string }>(companyId)
+  if (!response.success) {
+    throw new ApiError(500, (response as { error?: string }).error || 'Error al obtener usuarios', ErrorCodes.INTERNAL_ERROR)
+  }
+  const data = (response as { data: any[] }).data || []
+  return {
+    users: data.map((m) => ({
+      id: m.userId ?? m.id,
+      email: m.email,
+      name: m.name ?? m.email,
+      role: m.membershipRole ?? 'USER',
+      active: true,
+    })),
+    pagination: { page: 1, limit: data.length, total: data.length, totalPages: 1 },
+  }
+}
+
+export async function createCompanyMember(
+  companyId: string,
+  data: { email: string; password: string; firstName?: string; lastName?: string; membershipRole: 'ADMIN' | 'USER' }
+) {
+  const response = await companiesApi.createMember<{ success: boolean; data: any; error?: string }>(companyId, data)
+  if (!response.success) {
+    throw new ApiError(400, (response as { error?: string }).error || 'Error al crear usuario', ErrorCodes.VALIDATION_ERROR)
+  }
+  return (response as { data: any }).data
+}
 
 export async function getUsers(query: UserQueryInput = { page: 1, limit: 20 }) {
   const { search, role, active, page = 1, limit = 20 } = query

@@ -34,10 +34,15 @@ async function checkPendingSales(): Promise<number> {
     return 0
   }
 
-  const usersResponse = await shopflowApi.get<{ success: boolean; data?: Array<{ id: string; notificationPreferences?: { inAppPendingTasks?: boolean } }> }>(
-    '/users/notify-recipients?role=SUPERVISOR'
-  )
-  const supervisors = usersResponse.success && usersResponse.data ? usersResponse.data : []
+  let supervisors: Array<{ id: string; notificationPreferences?: { inAppPendingTasks?: boolean } }> = []
+  try {
+    const usersResponse = await shopflowApi.get<{ success: boolean; data?: Array<{ id: string; notificationPreferences?: { inAppPendingTasks?: boolean } }> }>(
+      '/users/notify-recipients?role=SUPERVISOR'
+    )
+    supervisors = usersResponse.success && usersResponse.data ? usersResponse.data : []
+  } catch {
+    // API may not have notify-recipients endpoint yet
+  }
 
   let notificationsSent = 0
 
@@ -72,19 +77,29 @@ async function checkPendingSales(): Promise<number> {
 }
 
 async function checkUnprocessedInventory(): Promise<number> {
-  const countResponse = await shopflowApi.get<{ success: boolean; data?: { count?: number } }>(
-    '/products/inactive-count'
-  )
-  const inactiveProducts = countResponse.success && countResponse.data?.count != null ? countResponse.data.count : 0
+  let inactiveProducts = 0
+  try {
+    const countResponse = await shopflowApi.get<{ success: boolean; data?: { count?: number } }>(
+      '/products/inactive-count'
+    )
+    inactiveProducts = countResponse.success && countResponse.data?.count != null ? countResponse.data.count : 0
+  } catch {
+    // API may not have inactive-count endpoint yet
+  }
 
   if (inactiveProducts === 0) {
     return 0
   }
 
-  const usersResponse = await shopflowApi.get<{ success: boolean; data?: Array<{ id: string; notificationPreferences?: { inAppPendingTasks?: boolean } }> }>(
-    '/users/notify-recipients?role=ADMIN'
-  )
-  const admins = usersResponse.success && usersResponse.data ? usersResponse.data : []
+  let admins: Array<{ id: string; notificationPreferences?: { inAppPendingTasks?: boolean } }> = []
+  try {
+    const usersResponse = await shopflowApi.get<{ success: boolean; data?: Array<{ id: string; notificationPreferences?: { inAppPendingTasks?: boolean } }> }>(
+      '/users/notify-recipients?role=ADMIN'
+    )
+    admins = usersResponse.success && usersResponse.data ? usersResponse.data : []
+  } catch {
+    // API may not have notify-recipients endpoint yet
+  }
 
   let notificationsSent = 0
 

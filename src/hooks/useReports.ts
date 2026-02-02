@@ -6,21 +6,32 @@ import type {
   PaymentMethodStats,
   SalesByUserData,
 } from '@/lib/services/reportService'
+import {
+  getTodayStats,
+  getWeekStats,
+  getMonthStats,
+  getDailySales,
+  getTopProducts,
+  getPaymentMethodStats,
+  getInventoryStats,
+  getSalesByUser,
+} from '@/lib/services/reportService'
 
 async function fetchSalesStats(period: 'today' | 'week' | 'month'): Promise<SalesStats> {
-  const response = await fetch(`/api/reports/stats?period=${period}`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch sales stats')
+  switch (period) {
+    case 'today':
+      return getTodayStats()
+    case 'week':
+      return getWeekStats()
+    case 'month':
+      return getMonthStats()
+    default:
+      return getTodayStats()
   }
-  return response.json()
 }
 
 async function fetchDailySales(days: number = 30): Promise<DailySalesData[]> {
-  const response = await fetch(`/api/reports/daily-sales?days=${days}`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch daily sales')
-  }
-  return response.json()
+  return getDailySales(days)
 }
 
 async function fetchTopProducts(
@@ -29,31 +40,22 @@ async function fetchTopProducts(
   endDate?: string,
   categoryId?: string
 ): Promise<ProductSalesData[]> {
-  const params = new URLSearchParams({ limit: String(limit) })
-  if (startDate) params.append('startDate', startDate)
-  if (endDate) params.append('endDate', endDate)
-  if (categoryId) params.append('categoryId', categoryId)
-
-  const response = await fetch(`/api/reports/top-products?${params.toString()}`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch top products')
-  }
-  return response.json()
+  return getTopProducts(
+    limit,
+    startDate ? new Date(startDate) : undefined,
+    endDate ? new Date(endDate) : undefined,
+    categoryId
+  )
 }
 
 async function fetchPaymentMethodStats(
   startDate?: string,
   endDate?: string
 ): Promise<PaymentMethodStats[]> {
-  const params = new URLSearchParams()
-  if (startDate) params.append('startDate', startDate)
-  if (endDate) params.append('endDate', endDate)
-
-  const response = await fetch(`/api/reports/payment-methods?${params.toString()}`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch payment method stats')
-  }
-  return response.json()
+  return getPaymentMethodStats(
+    startDate ? new Date(startDate) : undefined,
+    endDate ? new Date(endDate) : undefined
+  )
 }
 
 async function fetchInventoryStats(): Promise<{
@@ -71,11 +73,14 @@ async function fetchInventoryStats(): Promise<{
     value: number
   }>
 }> {
-  const response = await fetch('/api/reports/inventory')
-  if (!response.ok) {
-    throw new Error('Failed to fetch inventory stats')
+  const data = await getInventoryStats()
+  return {
+    ...data,
+    products: data.products.map((p) => ({
+      ...p,
+      minStock: p.minStock ?? 0,
+    })),
   }
-  return response.json()
 }
 
 export function useSalesStats(period: 'today' | 'week' | 'month' = 'today') {
@@ -123,15 +128,11 @@ async function fetchSalesByUser(
   startDate?: string,
   endDate?: string
 ): Promise<SalesByUserData> {
-  const params = new URLSearchParams({ userId })
-  if (startDate) params.append('startDate', startDate)
-  if (endDate) params.append('endDate', endDate)
-
-  const response = await fetch(`/api/reports/sales-by-user?${params.toString()}`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch sales by user')
-  }
-  return response.json()
+  return getSalesByUser(
+    userId,
+    startDate ? new Date(startDate) : undefined,
+    endDate ? new Date(endDate) : undefined
+  )
 }
 
 export function useSalesByUser(
@@ -145,4 +146,3 @@ export function useSalesByUser(
     enabled: !!userId,
   })
 }
-

@@ -1,19 +1,30 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { authApi } from '@/lib/api/client'
 import { Module, Permission, type PermissionString, hasPermissionString } from '@/lib/permissions'
 import type { UserRole } from '@/types'
 
+type MeResponse =
+  | { success: true; data: { id: string; email: string; name: string | null; role: string } }
+  | { success: false; error?: string }
+  | { user: { role: string } }
+
 /**
- * Get current user from API
+ * Get current user from API (token sent via client from cookie). Returns only role for permissions.
  */
 async function getCurrentUser(): Promise<{ role: UserRole }> {
-  const response = await fetch('/api/auth/me')
-  if (!response.ok) {
-    throw new Error('Failed to fetch user')
+  const response = await authApi.get<MeResponse>('/me')
+  const user =
+    response && typeof response === 'object' && 'data' in response && response.success && response.data
+      ? response.data
+      : response && typeof response === 'object' && 'user' in response
+        ? (response as { user: { role: string } }).user
+        : null
+  if (!user) {
+    throw new Error((response && typeof response === 'object' && 'error' in response ? (response as { error?: string }).error : undefined) || 'Failed to fetch user')
   }
-  const data = await response.json()
-  return data.user
+  return { role: user.role as UserRole }
 }
 
 /**

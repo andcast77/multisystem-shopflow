@@ -1,20 +1,13 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Package, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react'
 import { useProducts } from '@/hooks/useProducts'
+import { useLowStockProducts } from '@/hooks/useInventory'
 
 export function InventoryOverview() {
   const { data: productsData } = useProducts({ page: 1, limit: 1000 })
-  const { data: lowStockData } = useQuery({
-    queryKey: ['inventory', 'low-stock'],
-    queryFn: async () => {
-      const response = await fetch('/api/products/low-stock')
-      if (!response.ok) throw new Error('Failed to fetch low stock')
-      return response.json()
-    },
-  })
+  const { data: lowStockData } = useLowStockProducts()
 
   const products = productsData?.products || []
   const lowStockProducts = lowStockData || []

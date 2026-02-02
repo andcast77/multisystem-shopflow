@@ -1,59 +1,44 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { loginSchema, type LoginInput } from '@/lib/validations/auth'
-import { saveOfflineAuth, validateOfflineToken } from '@/lib/services/offlineAuth'
+import { authApi } from '@/lib/api/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
+type CompanyOption = { id: string; name: string; workifyEnabled: boolean; shopflowEnabled: boolean }
+
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 7 // 7 días
+
+function setTokenCookie(token: string) {
+  document.cookie = `token=${encodeURIComponent(token)}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`
+}
+
 export default function LoginPage() {
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+  const [companies, setCompanies] = useState<CompanyOption[] | null>(null)
+  const [selectingCompany, setSelectingCompany] = useState(false)
 
-  // Verificar si el usuario ya está autenticado y redirigir al dashboard
+  // Verificar si el usuario ya está autenticado (solo vía API)
   useEffect(() => {
     const checkAuth = async () => {
-      // Primero verificar token offline (más rápido y funciona sin servidor)
-      const offlineUser = validateOfflineToken()
-      if (offlineUser) {
-        // Intentar verificar con el servidor, pero con timeout corto
-        // Si el servidor está offline, usar el token offline
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 2000) // 2 segundos timeout
-
-        try {
-          const response = await fetch('/api/auth/me', {
-            signal: controller.signal,
-          })
-          clearTimeout(timeoutId)
-          
-          if (response.ok) {
-            // Usuario autenticado en servidor, redirigir al dashboard
-            router.push('/dashboard')
-            router.refresh()
-            return
-          }
-        } catch (error) {
-          clearTimeout(timeoutId)
-          // Si falla (servidor offline, timeout, etc.), usar token offline
-          // Esto permite funcionar completamente offline
-          router.push('/dashboard')
-          router.refresh()
-          return
-        }
+      try {
+        await authApi.get('/me')
+        window.location.href = '/dashboard'
+        return
+      } catch {
+        setIsCheckingAuth(false)
       }
-      setIsCheckingAuth(false)
     }
 
     checkAuth()
-  }, [router])
+  }, [])
 
   const {
     register,
@@ -68,39 +53,84 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      // IMPORTANTE: Las credenciales se envían en el body del POST, NO en la URL
-      // Esto es seguro y evita que las credenciales aparezcan en logs del servidor,
-      // historial del navegador, o referrers
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data), // Credenciales en el body, no en la URL
-      })
+      const res = await authApi.post<
+        | {
+            success: true
+            data: {
+              token: string
+              user: { id: string; email: string; role: string; name: string }
+              companyId?: string
+              company?: { id: string; name: string }
+              companies?: CompanyOption[]
+            }
+          }
+        | { success: false; error?: string }
+      >('/login', data)
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Error al iniciar sesión')
+      if (!res || typeof res !== 'object' || !('data' in res) || !res.success || !res.data) {
+        setError((res as { error?: string })?.error ?? 'Error al iniciar sesión')
+        return
       }
 
-      const result = await response.json()
+      const { token, companyId, company, companies: companiesList } = res.data
 
-      // Save token and user info for offline access
-      if (result.token && result.user) {
-        saveOfflineAuth(result.token, {
-          id: result.user.id,
-          email: result.user.email,
-          role: result.user.role,
-          name: result.user.name,
-        })
+      if (!token) {
+        setError('La API no devolvió un token')
+        return
       }
 
-      // Redirect to dashboard on success
-      router.push('/dashboard')
-      router.refresh()
+      setTokenCookie(token)
+
+      // Si ya hay empresa en el token, ir al dashboard
+      if (companyId ?? company) {
+        window.location.href = '/dashboard'
+        return
+      }
+
+      // Superuser o varias empresas: seleccionar primera por defecto y redirigir
+      if (companiesList && companiesList.length > 0) {
+        const withShopflow = companiesList.filter((c) => c.shopflowEnabled)
+        const listToShow = withShopflow.length > 0 ? withShopflow : companiesList
+        if (listToShow.length > 0) {
+          const ctx = await authApi.post<{ success: boolean; data?: { token: string }; error?: string }>(
+            '/context',
+            { companyId: listToShow[0].id }
+          )
+          if (ctx && typeof ctx === 'object' && 'data' in ctx && ctx.success && ctx.data?.token) {
+            setTokenCookie(ctx.data.token)
+            window.location.href = '/dashboard'
+            return
+          }
+        }
+        setCompanies(listToShow)
+        setSelectingCompany(true)
+        return
+      }
+
+      window.location.href = '/dashboard'
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleChooseCompany = async (companyId: string) => {
+    setError(null)
+    setIsLoading(true)
+    try {
+      const res = await authApi.post<{ success: boolean; data?: { token: string }; error?: string }>(
+        '/context',
+        { companyId }
+      )
+      if (!res || typeof res !== 'object' || !('data' in res) || !res.success || !res.data?.token) {
+        setError((res as { error?: string })?.error ?? 'Error al seleccionar empresa')
+        return
+      }
+      setTokenCookie(res.data.token)
+      window.location.href = '/dashboard'
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al seleccionar empresa')
     } finally {
       setIsLoading(false)
     }
@@ -114,6 +144,45 @@ export default function LoginPage() {
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
           <p className="mt-4 text-gray-600">Verificando autenticación...</p>
         </div>
+      </div>
+    )
+  }
+
+  // Pantalla de selección de empresa (superuser o varias empresas)
+  if (selectingCompany && companies && companies.length > 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold text-center">
+              Selecciona una empresa
+            </CardTitle>
+            <CardDescription className="text-center">
+              Elige con qué empresa quieres trabajar en ShopFlow.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                {error}
+              </div>
+            )}
+            <div className="space-y-2">
+              {companies.map((c) => (
+                <Button
+                  key={c.id}
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start h-auto py-3"
+                  disabled={isLoading}
+                  onClick={() => handleChooseCompany(c.id)}
+                >
+                  {c.name}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -176,17 +245,6 @@ export default function LoginPage() {
               {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </Button>
           </form>
-
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="text-sm font-medium text-blue-900 mb-2">
-              Credenciales de prueba:
-            </p>
-            <div className="text-xs text-blue-700 space-y-1">
-              <p><strong>Superadmin:</strong> superadmin@shopflow.com / superadmin</p>
-              <p><strong>Admin:</strong> admin@shopflow.com / admin123</p>
-              <p><strong>Cajero:</strong> cashier@shopflow.com / cashier123</p>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>

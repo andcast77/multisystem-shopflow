@@ -87,32 +87,6 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      // Service worker should not be cached
-      {
-        source: '/sw.js',
-        headers: [
-          ...securityHeaders,
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=0, must-revalidate',
-          },
-          {
-            key: 'Service-Worker-Allowed',
-            value: '/',
-          },
-        ],
-      },
-      // Manifest should be cached but can be updated
-      {
-        source: '/manifest.json',
-        headers: [
-          ...securityHeaders,
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=86400, stale-while-revalidate=604800',
-          },
-        ],
-      },
       // API routes - no cache
       {
         source: '/api/:path*',
@@ -127,7 +101,6 @@ const nextConfig: NextConfig = {
     ]
   },
   // Frontend only - no server-side packages needed
-  // Turbopack configuration (Next.js 16 uses Turbopack by default)
   turbopack: {},
   // Ensure service worker is served correctly (for webpack fallback)
   webpack: (config, { isServer }) => {

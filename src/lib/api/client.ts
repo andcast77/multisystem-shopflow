@@ -1,7 +1,19 @@
 // API Client for ShopFlow Frontend
-// Points to unified API with module prefixes
+// Points to unified API with module prefixes (all requests go to external API, not Next.js routes)
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+
+/** Read token from cookie (client-only). Cookie name must match login page. */
+function getTokenFromCookie(): string | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(/token=([^;]+)/)
+  if (!match) return null
+  try {
+    return decodeURIComponent(match[1].trim())
+  } catch {
+    return null
+  }
+}
 
 class ApiClient {
   private baseURL: string
@@ -16,17 +28,34 @@ class ApiClient {
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
 
+    const headers = new Headers(options.headers)
+    headers.set('Content-Type', 'application/json')
+
+    const token = getTokenFromCookie()
+    if (token && !headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${token}`)
+    }
+
     const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
       credentials: 'include',
       ...options,
     })
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`)
+      // Try to get error message from response body
+      let errorMessage = `API Error: ${response.status} ${response.statusText}`
+      try {
+        const errorData = await response.json()
+        if (errorData.error) {
+          errorMessage = errorData.error
+        } else if (errorData.message) {
+          errorMessage = errorData.message
+        }
+      } catch {
+        // Response body is not JSON, use default error message
+      }
+      throw new Error(errorMessage)
     }
 
     return response.json()
@@ -61,6 +90,12 @@ class ApiClient {
   }
 }
 
+/** Auth headers for fetch to external API (e.g. FormData uploads). */
+export function getAuthHeaders(): HeadersInit {
+  const token = getTokenFromCookie()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 // Unified API Client
 export const apiClient = new ApiClient(API_URL)
 
@@ -78,6 +113,15 @@ export const authApi = {
   post: <T>(endpoint: string, data?: unknown, options?: RequestInit) => apiClient.post<T>(`/api/auth${endpoint}`, data, options),
   put: <T>(endpoint: string, data?: unknown, options?: RequestInit) => apiClient.put<T>(`/api/auth${endpoint}`, data, options),
   delete: <T>(endpoint: string, options?: RequestInit) => apiClient.delete<T>(`/api/auth${endpoint}`, options),
+}
+
+// Company members API (usuarios de la empresa - misma lista en Workify y Shopflow)
+export const companiesApi = {
+  getMembers: <T>(companyId: string) => apiClient.get<T>(`/api/companies/${companyId}/members`),
+  createMember: <T>(
+    companyId: string,
+    data: { email: string; password: string; firstName?: string; lastName?: string; membershipRole: 'ADMIN' | 'USER' }
+  ) => apiClient.post<T>(`/api/companies/${companyId}/members`, data),
 }
 
 // Generic API response types

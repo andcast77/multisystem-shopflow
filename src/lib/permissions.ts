@@ -60,10 +60,13 @@ export interface RolePermissions {
   [Module.LOYALTY]: Permission[]
 }
 
+/** Roles that exist in the backend; frontend map may include extras (e.g. SUPERADMIN). */
+type RoleKey = UserRole | 'SUPERADMIN'
+
 /**
  * Permission configuration map by role
  */
-const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
+const ROLE_PERMISSIONS: Record<RoleKey, RolePermissions> = {
   ADMIN: {
     [Module.PRODUCTS]: [Permission.MANAGE],
     [Module.INVENTORY]: [Permission.MANAGE],
@@ -100,6 +103,18 @@ const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     [Module.STORE_CONFIG]: [],
     [Module.LOYALTY]: [Permission.VIEW],
   },
+  SUPERADMIN: {
+    [Module.PRODUCTS]: [Permission.MANAGE],
+    [Module.INVENTORY]: [Permission.MANAGE],
+    [Module.SALES]: [Permission.MANAGE],
+    [Module.CUSTOMERS]: [Permission.MANAGE],
+    [Module.REPORTS]: [Permission.MANAGE],
+    [Module.SUPPLIERS]: [Permission.MANAGE],
+    [Module.CATEGORIES]: [Permission.MANAGE],
+    [Module.USERS]: [Permission.MANAGE],
+    [Module.STORE_CONFIG]: [Permission.MANAGE],
+    [Module.LOYALTY]: [Permission.MANAGE],
+  },
 }
 
 /**
@@ -110,7 +125,8 @@ export function hasPermission(
   module: Module,
   permission: Permission
 ): boolean {
-  const rolePermissions = ROLE_PERMISSIONS[role]
+  const rolePermissions = ROLE_PERMISSIONS[role as RoleKey]
+  if (!rolePermissions) return false
   const modulePermissions = rolePermissions[module] || []
 
   // If role has MANAGE permission, grant all permissions
@@ -144,14 +160,20 @@ export function getModulePermissions(
   role: UserRole,
   module: Module
 ): Permission[] {
-  return ROLE_PERMISSIONS[role][module] || []
+  const rolePermissions = ROLE_PERMISSIONS[role as RoleKey]
+  if (!rolePermissions) return []
+  return rolePermissions[module] || []
 }
 
 /**
  * Get all permissions for a role across all modules
  */
 export function getRolePermissions(role: UserRole): RolePermissions {
-  return ROLE_PERMISSIONS[role]
+  const permissions = ROLE_PERMISSIONS[role as RoleKey]
+  if (!permissions) {
+    return {} as RolePermissions
+  }
+  return permissions
 }
 
 /**

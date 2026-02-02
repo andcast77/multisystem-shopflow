@@ -12,7 +12,7 @@ export async function getCustomers(query: CustomerQueryInput = {}) {
   if (phone) params.append('phone', phone)
 
   const response = await shopflowApi.get<ApiResult<any[]>>(
-    `/api/customers?${params.toString()}`
+    `/customers?${params.toString()}`
   )
 
   if (!response.success) {
@@ -24,7 +24,7 @@ export async function getCustomers(query: CustomerQueryInput = {}) {
 
 export async function getCustomerById(id: string) {
   const response = await shopflowApi.get<ApiResult<any>>(
-    `/api/customers/${id}`
+    `/customers/${id}`
   )
 
   if (!response.success) {
@@ -37,7 +37,7 @@ export async function getCustomerById(id: string) {
 export async function searchCustomers(searchTerm: string, limit = 10) {
   const params = new URLSearchParams({ search: searchTerm })
   const response = await shopflowApi.get<ApiResult<any[]>>(
-    `/api/customers?${params.toString()}`
+    `/customers?${params.toString()}`
   )
 
   if (!response.success) {
@@ -55,7 +55,7 @@ export async function searchCustomers(searchTerm: string, limit = 10) {
 
 export async function createCustomer(data: CreateCustomerInput) {
   const response = await shopflowApi.post<ApiResult<any>>(
-    '/api/customers',
+    '/customers',
     data
   )
 
@@ -68,7 +68,7 @@ export async function createCustomer(data: CreateCustomerInput) {
 
 export async function updateCustomer(id: string, data: UpdateCustomerInput) {
   const response = await shopflowApi.put<ApiResult<any>>(
-    `/api/customers/${id}`,
+    `/customers/${id}`,
     data
   )
 
@@ -84,7 +84,7 @@ export async function updateCustomer(id: string, data: UpdateCustomerInput) {
 
 export async function deleteCustomer(id: string) {
   const response = await shopflowApi.delete<ApiResult<any>>(
-    `/api/customers/${id}`
+    `/customers/${id}`
   )
 
   if (!response.success) {

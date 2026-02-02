@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { HardDrive, Loader2 } from 'lucide-react'
+import { createBackup } from '@/lib/services/backupApiService'
 
 export function CreateBackupButton() {
   const [isCreating, setIsCreating] = useState(false)
@@ -14,13 +15,7 @@ export function CreateBackupButton() {
 
     try {
       setIsCreating(true)
-      const response = await fetch('/api/admin/backup/create', {
-        method: 'POST',
-      })
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to create backup')
-      }
+      await createBackup()
       await queryClient.invalidateQueries({ queryKey: ['backups'] })
       alert('Respaldo creado exitosamente')
     } catch (err) {

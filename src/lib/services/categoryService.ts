@@ -11,7 +11,7 @@ export async function getCategories(query: CategoryQueryInput = { includeChildre
   if (includeChildren) params.append('includeChildren', 'true')
 
   const response = await shopflowApi.get<ApiResult<any[]>>(
-    `/api/categories?${params.toString()}`
+    `/categories?${params.toString()}`
   )
 
   if (!response.success) {
@@ -23,7 +23,7 @@ export async function getCategories(query: CategoryQueryInput = { includeChildre
 
 export async function getCategoryById(id: string) {
   const response = await shopflowApi.get<ApiResult<any>>(
-    `/api/categories/${id}`
+    `/categories/${id}`
   )
 
   if (!response.success) {
@@ -36,7 +36,7 @@ export async function getCategoryById(id: string) {
 export async function getRootCategories() {
   const params = new URLSearchParams({ parentId: 'null' })
   const response = await shopflowApi.get<ApiResult<any[]>>(
-    `/api/categories?${params.toString()}`
+    `/categories?${params.toString()}`
   )
 
   if (!response.success) {
@@ -57,7 +57,7 @@ export async function getCategoryTree(): Promise<CategoryTreeItem[]> {
   const buildTree = async (categoryId: string): Promise<CategoryTreeItem[]> => {
     const params = new URLSearchParams({ parentId: categoryId })
     const response = await shopflowApi.get<{ success: boolean; data: any[] }>(
-      `/api/categories?${params.toString()}`
+      `/categories?${params.toString()}`
     )
 
     if (!response.success) {
@@ -86,7 +86,7 @@ export async function getCategoryTree(): Promise<CategoryTreeItem[]> {
 
 export async function createCategory(data: CreateCategoryInput) {
   const response = await shopflowApi.post<{ success: boolean; data: any; error?: string }>(
-    '/api/categories',
+    '/categories',
     data
   )
 
@@ -105,7 +105,7 @@ export async function createCategory(data: CreateCategoryInput) {
 
 export async function updateCategory(id: string, data: UpdateCategoryInput) {
   const response = await shopflowApi.put<{ success: boolean; data: any; error?: string }>(
-    `/api/categories/${id}`,
+    `/categories/${id}`,
     data
   )
 
@@ -124,7 +124,7 @@ export async function updateCategory(id: string, data: UpdateCategoryInput) {
 
 export async function deleteCategory(id: string) {
   const response = await shopflowApi.delete<{ success: boolean; data?: any; error?: string }>(
-    `/api/categories/${id}`
+    `/categories/${id}`
   )
 
   if (!response.success) {

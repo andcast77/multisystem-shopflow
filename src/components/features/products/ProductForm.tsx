@@ -15,8 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useQuery } from '@tanstack/react-query'
 import type { Category } from '@/types'
+import { useCategories } from '@/hooks/useCategories'
 
 interface ProductFormProps {
   initialData?: Partial<CreateProductInput>
@@ -24,20 +24,9 @@ interface ProductFormProps {
   isLoading?: boolean
 }
 
-async function fetchCategories(): Promise<Category[]> {
-  const response = await fetch('/api/categories')
-  if (!response.ok) {
-    throw new Error('Failed to fetch categories')
-  }
-  const data = await response.json()
-  return data.categories || []
-}
-
 export function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
-  const { data: categoriesData } = useQuery({
-    queryKey: ['categories'],
-    queryFn: fetchCategories,
-  })
+  const { data: categoriesData } = useCategories()
+  const categories: Category[] = Array.isArray(categoriesData) ? categoriesData : []
 
   const {
     register,
@@ -134,7 +123,7 @@ export function ProductForm({ initialData, onSubmit, isLoading }: ProductFormPro
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="">Sin categoría</SelectItem>
-              {categoriesData?.map((category) => (
+              {categories.map((category) => (
                 <SelectItem key={category.id} value={category.id}>
                   {category.name}
                 </SelectItem>

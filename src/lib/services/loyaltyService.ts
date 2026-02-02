@@ -33,7 +33,7 @@ export interface PointsTransaction {
  */
 export async function getLoyaltyConfig(): Promise<LoyaltyConfigData> {
   const response = await shopflowApi.get<{ success: boolean; data: LoyaltyConfigData }>(
-    '/api/loyalty/config'
+    '/loyalty/config'
   )
 
   if (!response.success) {
@@ -55,7 +55,7 @@ export async function getLoyaltyConfig(): Promise<LoyaltyConfigData> {
  */
 export async function updateLoyaltyConfig(data: Partial<LoyaltyConfigData>): Promise<LoyaltyConfigData> {
   const response = await shopflowApi.put<{ success: boolean; data: LoyaltyConfigData; error?: string }>(
-    '/api/loyalty/config',
+    '/loyalty/config',
     data
   )
 
@@ -71,7 +71,7 @@ export async function updateLoyaltyConfig(data: Partial<LoyaltyConfigData>): Pro
  */
 export async function getCustomerPointsBalance(customerId: string): Promise<CustomerPointsBalance> {
   const response = await shopflowApi.get<{ success: boolean; data: CustomerPointsBalance; error?: string }>(
-    `/api/loyalty/points/${customerId}`
+    `/loyalty/points/${customerId}`
   )
 
   if (!response.success) {
@@ -93,7 +93,7 @@ export async function awardPointsForPurchase(
   saleId: string
 ): Promise<number> {
   const response = await shopflowApi.post<{ success: boolean; data: { pointsAwarded: number }; error?: string }>(
-    '/api/loyalty/points/award',
+    '/loyalty/points/award',
     {
       customerId,
       purchaseAmount,

@@ -1,59 +1,27 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { CustomerPointsBalance } from '@/lib/services/loyaltyService'
+import {
+  getCustomerPointsBalance,
+  getCustomerPointsHistory,
+  getLoyaltyConfig,
+  updateLoyaltyConfig as updateLoyaltyConfigApi,
+  redeemPoints,
+} from '@/lib/services/loyaltyService'
 
 async function fetchCustomerPointsBalance(customerId: string): Promise<CustomerPointsBalance> {
-  const response = await fetch(`/api/loyalty/balance/${customerId}`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch customer points balance')
-  }
-  return response.json()
+  return getCustomerPointsBalance(customerId)
 }
 
 async function fetchCustomerPointsHistory(
   customerId: string,
   limit: number = 20,
   offset: number = 0
-): Promise<{
-  transactions: Array<{
-    id: string
-    type: string
-    points: number
-    balance: number
-    description: string | null
-    createdAt: Date
-    sale: { id: string; invoiceNumber: string | null; total: number } | null
-  }>
-  pagination: {
-    total: number
-    limit: number
-    offset: number
-    hasMore: boolean
-  }
-}> {
-  const params = new URLSearchParams({
-    limit: String(limit),
-    offset: String(offset),
-  })
-
-  const response = await fetch(`/api/loyalty/history/${customerId}?${params.toString()}`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch customer points history')
-  }
-  return response.json()
+) {
+  return getCustomerPointsHistory(customerId, limit, offset)
 }
 
-async function fetchLoyaltyConfig(): Promise<{
-  pointsPerDollar: number
-  redemptionRate: number
-  pointsExpireMonths?: number
-  minPurchaseForPoints: number
-  maxPointsPerPurchase?: number
-}> {
-  const response = await fetch('/api/loyalty/config')
-  if (!response.ok) {
-    throw new Error('Failed to fetch loyalty configuration')
-  }
-  return response.json()
+async function fetchLoyaltyConfig() {
+  return getLoyaltyConfig()
 }
 
 async function redeemPointsForDiscount(
@@ -61,20 +29,7 @@ async function redeemPointsForDiscount(
   pointsToRedeem: number,
   description?: string
 ): Promise<{ discountAmount: number; pointsUsed: number }> {
-  const response = await fetch('/api/loyalty/redeem', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ customerId, pointsToRedeem, description }),
-  })
-
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to redeem points')
-  }
-
-  return response.json()
+  return redeemPoints(customerId, pointsToRedeem, description)
 }
 
 async function updateLoyaltyConfig(data: {
@@ -83,27 +38,8 @@ async function updateLoyaltyConfig(data: {
   pointsExpireMonths?: number
   minPurchaseForPoints?: number
   maxPointsPerPurchase?: number
-}): Promise<{
-  pointsPerDollar: number
-  redemptionRate: number
-  pointsExpireMonths?: number
-  minPurchaseForPoints: number
-  maxPointsPerPurchase?: number
-}> {
-  const response = await fetch('/api/loyalty/config', {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  })
-
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to update loyalty configuration')
-  }
-
-  return response.json()
+}) {
+  return updateLoyaltyConfigApi(data)
 }
 
 export function useCustomerPoints(customerId: string | null) {

@@ -102,14 +102,17 @@ export class ConnectivityChecker {
         }
       }
     } else {
-      // En producción, hacer check más estricto
+      // En producción, hacer ping a la API real (NEXT_PUBLIC_API_URL)
+      const apiUrl = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_URL : undefined
       try {
-        const response = await fetch('/api/auth/me', {
+        const url = apiUrl ? `${apiUrl.replace(/\/$/, '')}/api/auth/me` : '/api/auth/me'
+        const response = await fetch(url, {
           method: 'HEAD',
           cache: 'no-cache',
+          credentials: 'include',
           signal: AbortSignal.timeout(3000),
         }).catch(() => {
-          return fetch('/', {
+          return fetch(typeof window !== 'undefined' ? window.location.origin + '/' : '/', {
             method: 'HEAD',
             cache: 'no-cache',
             signal: AbortSignal.timeout(3000),

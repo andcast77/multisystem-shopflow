@@ -9,30 +9,20 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 5 * 60 * 1000, // 5 minutes - longer for offline support
+            staleTime: 5 * 60 * 1000, // 5 minutes
             gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
             retry: (failureCount, _error: unknown) => {
-              // Don't retry if offline
-              if (!navigator.onLine) {
-                return false
-              }
-              // Retry up to 2 times for network errors
-              if (failureCount < 2) {
-                return true
-              }
-              return false
+              if (!navigator.onLine) return false
+              return failureCount < 2
             },
             retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-            refetchOnWindowFocus: false, // Don't refetch on window focus for better offline experience
-            refetchOnReconnect: true, // Refetch when connection is restored
-            refetchOnMount: true, // Refetch on mount to get fresh data when online
+            refetchOnWindowFocus: false,
+            refetchOnReconnect: true,
+            refetchOnMount: true,
           },
           mutations: {
             retry: (failureCount, _error: unknown) => {
-              // Don't retry mutations if offline - they'll be queued
-              if (!navigator.onLine) {
-                return false
-              }
+              if (!navigator.onLine) return false
               return failureCount < 1
             },
           },

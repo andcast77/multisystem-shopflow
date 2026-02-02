@@ -1,27 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { StoreConfig } from '@/types'
 import type { UpdateStoreConfigInput } from '@/lib/validations/storeConfig'
+import { getStoreConfig, updateStoreConfig as updateStoreConfigApi } from '@/lib/services/storeConfigService'
 
 async function fetchStoreConfig(): Promise<StoreConfig> {
-  const response = await fetch('/api/store-config')
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to fetch store config')
-  }
-  return response.json()
+  return getStoreConfig() as Promise<StoreConfig>
 }
 
 async function updateStoreConfig(data: UpdateStoreConfigInput): Promise<StoreConfig> {
-  const response = await fetch('/api/store-config', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to update store config')
-  }
-  return response.json()
+  return updateStoreConfigApi(data) as Promise<StoreConfig>
 }
 
 export function useStoreConfig() {

@@ -24,10 +24,15 @@ export async function checkLowStockAlerts(): Promise<number> {
     return 0
   }
 
-  const usersResponse = await shopflowApi.get<{ success: boolean; data?: Array<{ id: string; notificationPreferences?: { inAppLowStock?: boolean } }> }>(
-    '/users/notify-recipients?role=ADMIN,SUPERVISOR'
-  )
-  const users = usersResponse.success && usersResponse.data ? usersResponse.data : []
+  let users: Array<{ id: string; notificationPreferences?: { inAppLowStock?: boolean } }> = []
+  try {
+    const usersResponse = await shopflowApi.get<{ success: boolean; data?: Array<{ id: string; notificationPreferences?: { inAppLowStock?: boolean } }> }>(
+      '/users/notify-recipients?role=ADMIN,SUPERVISOR'
+    )
+    users = usersResponse.success && usersResponse.data ? usersResponse.data : []
+  } catch {
+    // API may not have notify-recipients endpoint yet; skip sending alerts
+  }
 
   let notificationsSent = 0
 
@@ -80,10 +85,15 @@ export async function sendLowStockAlertForProduct(productId: string): Promise<vo
     return
   }
 
-  const usersResponse = await shopflowApi.get<{ success: boolean; data?: Array<{ id: string; notificationPreferences?: { inAppLowStock?: boolean } }> }>(
-    '/users/notify-recipients?role=ADMIN,SUPERVISOR'
-  )
-  const users = usersResponse.success && usersResponse.data ? usersResponse.data : []
+  let users: Array<{ id: string; notificationPreferences?: { inAppLowStock?: boolean } }> = []
+  try {
+    const usersResponse = await shopflowApi.get<{ success: boolean; data?: Array<{ id: string; notificationPreferences?: { inAppLowStock?: boolean } }> }>(
+      '/users/notify-recipients?role=ADMIN,SUPERVISOR'
+    )
+    users = usersResponse.success && usersResponse.data ? usersResponse.data : []
+  } catch {
+    // API may not have notify-recipients endpoint yet
+  }
 
   for (const user of users) {
     const preferences = user.notificationPreferences

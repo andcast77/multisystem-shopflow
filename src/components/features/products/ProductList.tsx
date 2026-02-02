@@ -108,7 +108,7 @@ export function ProductList({ onProductClick }: ProductListProps) {
       </div>
 
       {/* Products Table */}
-      {data && data.products.length > 0 ? (
+      {(data?.products?.length ?? 0) > 0 ? (
         <>
           <div className="rounded-md border">
             <Table>
@@ -124,7 +124,7 @@ export function ProductList({ onProductClick }: ProductListProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.products.map((product) => (
+                {(data?.products ?? []).map((product) => (
                   <TableRow
                     key={product.id}
                     className={onProductClick ? 'cursor-pointer' : ''}
@@ -167,12 +167,12 @@ export function ProductList({ onProductClick }: ProductListProps) {
           </div>
 
           {/* Pagination */}
-          {data.pagination.totalPages > 1 && (
+          {(data?.pagination?.totalPages ?? 1) > 1 && (
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-500">
                 Mostrando {((page - 1) * query.limit) + 1} -{' '}
-                {Math.min(page * query.limit, data.pagination.total)} de{' '}
-                {data.pagination.total} productos
+                {Math.min(page * query.limit, data?.pagination?.total ?? 0)} de{' '}
+                {data?.pagination?.total ?? 0} productos
               </div>
               <div className="flex gap-2">
                 <Button
@@ -187,7 +187,7 @@ export function ProductList({ onProductClick }: ProductListProps) {
                   variant="outline"
                   size="sm"
                   onClick={() => setPage((p) => p + 1)}
-                  disabled={page >= data.pagination.totalPages}
+                  disabled={page >= (data?.pagination?.totalPages ?? 1)}
                 >
                   Siguiente
                 </Button>

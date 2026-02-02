@@ -130,7 +130,6 @@ export interface Customer {
   loyaltyPoints: number
   createdAt: Date
   updatedAt: Date
-  /** Sync metadata (IndexedDB/offline only) */
   lastSyncedAt?: number
   localModifiedAt?: number
 }
@@ -266,15 +265,6 @@ export interface NotificationPreference {
   pushSecurityAlerts?: boolean
   createdAt: Date
   updatedAt: Date
-}
-
-// Prisma namespace type for compatibility (minimal implementation)
-export namespace Prisma {
-  export type JsonValue = string | number | boolean | JsonObject | JsonArray | null
-  export interface JsonObject {
-    [key: string]: JsonValue
-  }
-  export type JsonArray = JsonValue[]
 }
 
 // Extended types

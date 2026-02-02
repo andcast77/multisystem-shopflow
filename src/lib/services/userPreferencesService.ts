@@ -3,7 +3,7 @@ import type { UpdateUserPreferencesInput } from '@/lib/validations/userPreferenc
 
 export async function getUserPreferences(userId: string) {
   const response = await shopflowApi.get<ApiResult<any>>(
-    `/api/user-preferences/${userId}`
+    `/user-preferences/${userId}`
   )
 
   if (!response.success) {
@@ -18,7 +18,7 @@ export async function updateUserPreferences(
   data: UpdateUserPreferencesInput
 ) {
   const response = await shopflowApi.put<ApiResult<any>>(
-    `/api/user-preferences/${userId}`,
+    `/user-preferences/${userId}`,
     data
   )
 

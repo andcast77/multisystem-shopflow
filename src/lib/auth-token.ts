@@ -53,11 +53,15 @@ export function verifyToken(token: string): {
       return null
     }
 
-    // Retornar datos del token
+    // Retornar datos del token (backend puede usar sub en vez de id)
+    const id = payload.sub ?? payload.id
+    const email = payload.email ?? ''
+    const role = payload.role as UserRole | undefined
+    if (!id || typeof id !== 'string') return null
     return {
-      id: payload.id,
-      email: payload.email,
-      role: payload.role as UserRole,
+      id: String(id),
+      email: typeof email === 'string' ? email : '',
+      role: (role && typeof role === 'string' ? role : 'CASHIER') as UserRole,
     }
   } catch {
     return null

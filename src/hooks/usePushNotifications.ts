@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { useUser } from '@/hooks/useUser'
+import { shopflowApi } from '@/lib/api/client'
 
 interface PushSubscription {
   endpoint: string
@@ -11,26 +13,22 @@ interface PushSubscription {
   }
 }
 
+const VAPID_PUBLIC_KEY = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY : undefined
+
 /**
  * Hook to manage push notification subscriptions
  */
 export function usePushNotifications() {
+  const { data: user } = useUser()
   const [isSupported, setIsSupported] = useState(false)
   const [permission, setPermission] = useState<NotificationPermission>('default')
-  const [vapidPublicKey, setVapidPublicKey] = useState<string | null>(null)
+  const [vapidPublicKey, setVapidPublicKey] = useState<string | null>(VAPID_PUBLIC_KEY || null)
 
-  // Get VAPID public key
+  // VAPID key from env (no API endpoint; set NEXT_PUBLIC_VAPID_PUBLIC_KEY)
   useEffect(() => {
-    fetch('/api/push/vapid-public-key')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.publicKey) {
-          setVapidPublicKey(data.publicKey)
-        }
-      })
-      .catch((error) => {
-        console.error('Failed to get VAPID public key:', error)
-      })
+    if (VAPID_PUBLIC_KEY) {
+      setVapidPublicKey(VAPID_PUBLIC_KEY)
+    }
   }, [])
 
   // Check browser support
@@ -58,7 +56,7 @@ export function usePushNotifications() {
     }
   }, [isSupported])
 
-  // Subscribe to push notifications
+  // Subscribe to push notifications (uses user from useUser for API)
   const subscribeMutation = useMutation({
     mutationFn: async (): Promise<void> => {
       if (!isSupported || !vapidPublicKey) {
@@ -75,23 +73,19 @@ export function usePushNotifications() {
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
       })
 
-      const subscriptionData: PushSubscription = {
+      const p256dh = arrayBufferToBase64(subscription.getKey('p256dh')!)
+      const auth = arrayBufferToBase64(subscription.getKey('auth')!)
+
+      if (!user?.id) {
+        throw new Error('Usuario no cargado. Inicia sesión e intenta de nuevo.')
+      }
+
+      await shopflowApi.post('/push-subscriptions', {
+        userId: user.id,
         endpoint: subscription.endpoint,
-        keys: {
-          p256dh: arrayBufferToBase64(subscription.getKey('p256dh')!),
-          auth: arrayBufferToBase64(subscription.getKey('auth')!),
-        },
-      }
-
-      const response = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(subscriptionData),
+        p256dh,
+        auth,
       })
-
-      if (!response.ok) {
-        throw new Error('Failed to save subscription')
-      }
 
       // Update permission state
       setPermission(Notification.permission)
@@ -111,13 +105,9 @@ export function usePushNotifications() {
       if (subscription) {
         await subscription.unsubscribe()
 
-        const response = await fetch(`/api/push/subscribe?endpoint=${encodeURIComponent(subscription.endpoint)}`, {
-          method: 'DELETE',
-        })
-
-        if (!response.ok) {
-          throw new Error('Failed to remove subscription')
-        }
+        await shopflowApi.delete(
+          `/push-subscriptions?endpoint=${encodeURIComponent(subscription.endpoint)}`
+        )
       }
 
       setPermission(Notification.permission)

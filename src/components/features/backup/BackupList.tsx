@@ -13,24 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Download, Trash2, HardDrive } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-
-interface Backup {
-  id: string
-  filename: string
-  createdAt: Date
-  size: number
-  type: 'database' | 'data_export'
-  format: 'sql' | 'json' | 'csv'
-}
-
-async function fetchBackups(): Promise<Backup[]> {
-  const response = await fetch('/api/admin/backup/list')
-  if (!response.ok) {
-    throw new Error('Failed to fetch backups')
-  }
-  const data = await response.json()
-  return data.backups || []
-}
+import { getBackupList, deleteBackup, getBackupDownloadUrl, type BackupItem } from '@/lib/services/backupApiService'
 
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes'
@@ -43,22 +26,18 @@ function formatFileSize(bytes: number): string {
 export function BackupList() {
   const { data: backups, isLoading, error, refetch } = useQuery({
     queryKey: ['backups'],
-    queryFn: fetchBackups,
+    queryFn: getBackupList,
   })
 
   const handleDownload = (filename: string) => {
-    window.open(`/api/admin/backup/download/${filename}`, '_blank')
+    const url = getBackupDownloadUrl(filename)
+    if (url) window.open(url, '_blank')
   }
 
   const handleDelete = async (filename: string) => {
     if (!confirm('¿Estás seguro de que deseas eliminar este respaldo?')) return
     try {
-      const response = await fetch(`/api/admin/backup/delete`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename }),
-      })
-      if (!response.ok) throw new Error('Failed to delete backup')
+      await deleteBackup(filename)
       refetch()
     } catch (err) {
       alert('Error al eliminar el respaldo: ' + String(err))
@@ -91,7 +70,7 @@ export function BackupList() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {backups.map((backup) => (
+          {backups.map((backup: BackupItem) => (
             <TableRow key={backup.id}>
               <TableCell className="font-medium">{backup.filename}</TableCell>
               <TableCell>

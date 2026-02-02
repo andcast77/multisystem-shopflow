@@ -1,13 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Product } from '@/types'
+import { getLowStockProducts, getProductById, updateProductInventory } from '@/lib/services/productService'
+import type { ApiResult } from '@/lib/api/client'
 
 async function fetchLowStockProducts(): Promise<Product[]> {
-  const response = await fetch('/api/products/low-stock')
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to fetch low stock products')
+  const result = await getLowStockProducts() as ApiResult<Product[]>
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to fetch low stock products')
   }
-  return response.json()
+  return result.data ?? []
 }
 
 async function adjustInventory(
@@ -15,16 +16,19 @@ async function adjustInventory(
   quantity: number,
   type: 'ADJUST' | 'ADD' | 'REMOVE'
 ): Promise<Product> {
-  const response = await fetch(`/api/products/${productId}/inventory`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ quantity, type }),
-  })
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to adjust inventory')
+  const product = await getProductById(productId)
+  const currentStock = product.stock ?? 0
+  const newStock =
+    type === 'ADD'
+      ? currentStock + quantity
+      : type === 'REMOVE'
+        ? Math.max(0, currentStock - quantity)
+        : quantity
+  const result = await updateProductInventory(productId, { stock: newStock }) as ApiResult<Product>
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to adjust inventory')
   }
-  return response.json()
+  return result.data as Product
 }
 
 export function useLowStockProducts() {

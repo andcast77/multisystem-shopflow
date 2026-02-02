@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useUsers } from '@/hooks/useUsers'
+import { useUser } from '@/hooks/useUser'
+import { useCompanyMembers } from '@/hooks/useUsers'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -24,22 +25,49 @@ import { Plus, Search, User as UserIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { UserRole } from '@/types'
 
+const PAGE_SIZE = 20
+
 export function UserList() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [page, setPage] = useState(1)
 
-  const query = {
-    search: search || undefined,
-    role: roleFilter !== 'all' ? (roleFilter as UserRole) : undefined,
+  const { data: currentUser, isLoading: isLoadingUser } = useUser()
+  const companyId = currentUser?.companyId
+  const companyMembersQuery = useCompanyMembers(companyId)
+
+  const allMembers = companyMembersQuery.data?.users ?? []
+  const filteredAndPaginated = useMemo(() => {
+    let list = allMembers
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      list = list.filter(
+        (u) =>
+          (u.email ?? '').toLowerCase().includes(q) ||
+          (u.name ?? '').toLowerCase().includes(q)
+      )
+    }
+    if (roleFilter !== 'all') {
+      list = list.filter((u) => (u.role ?? 'USER') === roleFilter)
+    }
+    const total = list.length
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+    const start = (page - 1) * PAGE_SIZE
+    const paginated = list.slice(start, start + PAGE_SIZE)
+    return { users: paginated, total, totalPages }
+  }, [allMembers, search, roleFilter, page])
+
+  const { users, total: totalFiltered, totalPages } = filteredAndPaginated
+  const pagination = {
     page,
-    limit: 20,
+    limit: PAGE_SIZE,
+    total: totalFiltered,
+    totalPages,
   }
 
-  const { data, isLoading, error } = useUsers(query)
-
-  const getRoleBadgeVariant = (role: UserRole) => {
+  const getRoleBadgeVariant = (role: UserRole | string) => {
     switch (role) {
+      case 'OWNER':
       case 'ADMIN':
         return 'default'
       case 'SUPERVISOR':
@@ -49,25 +77,49 @@ export function UserList() {
     }
   }
 
-  const getRoleLabel = (role: UserRole) => {
+  const getRoleLabel = (role: UserRole | string) => {
     switch (role) {
       case 'ADMIN':
         return 'Administrador'
+      case 'OWNER':
+        return 'Propietario'
+      case 'USER':
+        return 'Usuario'
       case 'SUPERVISOR':
         return 'Supervisor'
       case 'CASHIER':
         return 'Cajero'
       default:
-        return role
+        return String(role)
     }
   }
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center p-8 text-gray-500">Cargando usuarios...</div>
+  if (isLoadingUser) {
+    return <div className="flex items-center justify-center p-8 text-gray-500">Cargando...</div>
   }
 
-  if (error) {
-    return <div className="flex items-center justify-center p-8 text-red-500">Error: {String(error)}</div>
+  if (!companyId) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12">
+        <UserIcon className="h-12 w-12 text-gray-400" />
+        <h3 className="mt-4 text-lg font-semibold">Selecciona una empresa</h3>
+        <p className="mt-2 text-center text-sm text-gray-500">
+          Debes tener una empresa seleccionada para ver y gestionar los usuarios.
+        </p>
+      </div>
+    )
+  }
+
+  if (companyMembersQuery.error) {
+    return (
+      <div className="flex items-center justify-center p-8 text-red-500">
+        Error: {String(companyMembersQuery.error)}
+      </div>
+    )
+  }
+
+  if (companyMembersQuery.isLoading) {
+    return <div className="flex items-center justify-center p-8 text-gray-500">Cargando usuarios...</div>
   }
 
   return (
@@ -86,15 +138,15 @@ export function UserList() {
               className="pl-10"
             />
           </div>
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setPage(1) }}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Rol" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="OWNER">Propietario</SelectItem>
               <SelectItem value="ADMIN">Administrador</SelectItem>
-              <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
-              <SelectItem value="CASHIER">Cajero</SelectItem>
+              <SelectItem value="USER">Usuario</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -103,7 +155,7 @@ export function UserList() {
         </Link>
       </div>
 
-      {data && data.users.length > 0 ? (
+      {users.length > 0 ? (
         <>
           <div className="rounded-md border">
             <Table>
@@ -117,7 +169,7 @@ export function UserList() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.users.map((user) => (
+                {users.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
@@ -146,14 +198,14 @@ export function UserList() {
               </TableBody>
             </Table>
           </div>
-          {data.pagination.totalPages > 1 && (
+          {pagination.totalPages > 1 && (
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-500">
-                Mostrando {((page - 1) * query.limit) + 1} - {Math.min(page * query.limit, data.pagination.total)} de {data.pagination.total}
+                Mostrando {((page - 1) * PAGE_SIZE) + 1} - {Math.min(page * PAGE_SIZE, pagination.total)} de {pagination.total}
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Anterior</Button>
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={page >= data.pagination.totalPages}>Siguiente</Button>
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={page >= pagination.totalPages}>Siguiente</Button>
               </div>
             </div>
           )}

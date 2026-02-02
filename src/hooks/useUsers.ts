@@ -1,72 +1,61 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { User } from '@/types'
 import type { CreateUserInput, UpdateUserInput, UserQueryInput } from '@/lib/validations/user'
+import {
+  getUsers,
+  getCompanyMembers,
+  createCompanyMember,
+  getUserById,
+  createUser as createUserApi,
+  updateUser as updateUserApi,
+  deleteUser as deleteUserApi,
+} from '@/lib/services/userService'
 
 async function fetchUsers(query?: UserQueryInput): Promise<{ users: User[]; pagination: any }> {
-  const params = new URLSearchParams()
-  if (query?.search) params.append('search', query.search)
-  if (query?.role) params.append('role', query.role)
-  if (query?.active !== undefined) params.append('active', String(query.active))
-  if (query?.page) params.append('page', String(query.page))
-  if (query?.limit) params.append('limit', String(query.limit))
-
-  const response = await fetch(`/api/users?${params.toString()}`)
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to fetch users')
-  }
-  return response.json()
+  return getUsers(query ?? { page: 1, limit: 20 })
 }
 
 async function fetchUser(id: string): Promise<User> {
-  const response = await fetch(`/api/users/${id}`)
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to fetch user')
-  }
-  return response.json()
+  return getUserById(id)
 }
 
 async function createUser(data: CreateUserInput): Promise<User> {
-  const response = await fetch('/api/users', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to create user')
-  }
-  return response.json()
+  return createUserApi(data)
 }
 
 async function updateUser(id: string, data: UpdateUserInput): Promise<User> {
-  const response = await fetch(`/api/users/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to update user')
-  }
-  return response.json()
+  return updateUserApi(id, data)
 }
 
 async function deleteUser(id: string): Promise<void> {
-  const response = await fetch(`/api/users/${id}`, {
-    method: 'DELETE',
-  })
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to delete user')
-  }
+  await deleteUserApi(id)
 }
 
 export function useUsers(query?: UserQueryInput) {
   return useQuery({
     queryKey: ['users', query],
     queryFn: () => fetchUsers(query),
+  })
+}
+
+/** Usuarios de la empresa (misma lista en Workify y Shopflow). Usar cuando tengas companyId. */
+export function useCompanyMembers(companyId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['companyMembers', companyId],
+    queryFn: () => getCompanyMembers(companyId!),
+    enabled: !!companyId,
+  })
+}
+
+export function useCreateCompanyMember(companyId: string | null | undefined) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { email: string; password: string; firstName?: string; lastName?: string; membershipRole: 'ADMIN' | 'USER' }) =>
+      createCompanyMember(companyId!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companyMembers', companyId] })
+    },
+    enabled: !!companyId,
   })
 }
 

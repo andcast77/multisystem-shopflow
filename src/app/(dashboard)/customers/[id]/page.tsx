@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Trash2, Mail, MapPin, ShoppingBag, Gift } from 'lucide-react'
 import type { UpdateCustomerInput } from '@/lib/validations/customer'
+import type { Sale } from '@/types'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -272,7 +273,7 @@ export default function CustomerDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {customerWithSales.sales?.map((sale) => (
+                {customerWithSales.sales?.map((sale: Sale) => (
                   <TableRow key={sale.id}>
                     <TableCell className="font-medium">
                       {sale.invoiceNumber || `#${sale.id.slice(0, 8)}`}

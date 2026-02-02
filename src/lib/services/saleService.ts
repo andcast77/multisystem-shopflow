@@ -31,7 +31,7 @@ export async function getSales(query: SaleQueryInput = { page: 1, limit: 20 }) {
   if (endDate) params.append('endDate', endDate)
 
   const response = await shopflowApi.get<ApiResult<{ sales: any[]; pagination: any }>>(
-    `/api/sales?${params.toString()}`
+    `/sales?${params.toString()}`
   )
 
   if (!response.success) {
@@ -43,7 +43,7 @@ export async function getSales(query: SaleQueryInput = { page: 1, limit: 20 }) {
 
 export async function getSaleById(id: string) {
   const response = await shopflowApi.get<{ success: boolean; data: any; error?: string }>(
-    `/api/sales/${id}`
+    `/sales/${id}`
   )
 
   if (!response.success) {
@@ -125,7 +125,7 @@ export async function createSale(userId: string, data: CreateSaleInput) {
 
   // Create sale via API
   const response = await shopflowApi.post<ApiResult<any>>(
-    '/api/sales',
+    '/sales',
     {
       customerId: data.customerId ?? null,
       userId,
@@ -169,7 +169,7 @@ export async function cancelSale(id: string) {
   }
 
   const response = await shopflowApi.post<{ success: boolean; data: any; error?: string }>(
-    `/api/sales/${id}/cancel`,
+    `/sales/${id}/cancel`,
     {}
   )
 
@@ -200,7 +200,7 @@ export async function refundSale(id: string) {
   }
 
   const response = await shopflowApi.post<{ success: boolean; data: any; error?: string }>(
-    `/api/sales/${id}/refund`,
+    `/sales/${id}/refund`,
     {}
   )
 

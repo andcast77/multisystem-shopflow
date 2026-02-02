@@ -14,6 +14,8 @@ import { Label } from '@/components/ui/label'
 import { useCartStore } from '@/store/cartStore'
 import { useStoreConfig } from '@/hooks/useStoreConfig'
 import { useCustomerPoints, useRedeemPoints, useLoyaltyConfig } from '@/hooks/useLoyalty'
+import { useUser } from '@/hooks/useUser'
+import { useCreateSale } from '@/hooks/useSales'
 import { formatCurrency } from '@/lib/utils/format'
 import { PaymentMethod } from '@/types'
 import { Badge } from '@/components/ui/badge'
@@ -33,6 +35,8 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
   const { data: customerPoints } = useCustomerPoints(customerId)
   const { data: loyaltyConfig } = useLoyaltyConfig()
   const redeemPointsMutation = useRedeemPoints()
+  const { data: user } = useUser()
+  const createSaleMutation = useCreateSale()
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CASH)
   const [paidAmount, setPaidAmount] = useState('')
@@ -78,36 +82,30 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!user?.id) {
+      alert('Usuario no cargado. Intenta de nuevo.')
+      return
+    }
     setIsProcessing(true)
 
     try {
-      const response = await fetch('/api/sales', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const sale = await createSaleMutation.mutateAsync({
+        userId: user.id,
+        data: {
           customerId: customerId || null,
           items: items.map((item) => ({
             productId: item.product.id,
             quantity: item.quantity,
             price: item.product.price,
-            discount: item.discount,
+            discount: item.discount ?? 0,
           })),
-          paymentMethod: paymentMethod,
+          paymentMethod,
           paidAmount: parseFloat(paidAmount) || total,
           discount: discount + pointsDiscount,
-          taxRate: taxRate,
+          taxRate,
           notes: notes || null,
-        }),
+        },
       })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to process payment')
-      }
-
-      const sale = await response.json()
       clearCart()
       onSuccess(sale.id)
       onClose()

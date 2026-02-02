@@ -10,7 +10,7 @@ export async function getSuppliers(query: SupplierQueryInput = {}) {
   if (active !== undefined) params.append('active', active.toString())
 
   const response = await shopflowApi.get<ApiResult<any[]>>(
-    `/api/suppliers?${params.toString()}`
+    `/suppliers?${params.toString()}`
   )
 
   if (!response.success) {
@@ -22,7 +22,7 @@ export async function getSuppliers(query: SupplierQueryInput = {}) {
 
 export async function getSupplierById(id: string) {
   const response = await shopflowApi.get<ApiResult<any>>(
-    `/api/suppliers/${id}`
+    `/suppliers/${id}`
   )
 
   if (!response.success) {
@@ -34,7 +34,7 @@ export async function getSupplierById(id: string) {
 
 export async function createSupplier(data: CreateSupplierInput) {
   const response = await shopflowApi.post<ApiResult<any>>(
-    '/api/suppliers',
+    '/suppliers',
     data
   )
 
@@ -47,7 +47,7 @@ export async function createSupplier(data: CreateSupplierInput) {
 
 export async function updateSupplier(id: string, data: UpdateSupplierInput) {
   const response = await shopflowApi.put<ApiResult<any>>(
-    `/api/suppliers/${id}`,
+    `/suppliers/${id}`,
     data
   )
 
@@ -63,7 +63,7 @@ export async function updateSupplier(id: string, data: UpdateSupplierInput) {
 
 export async function deleteSupplier(id: string) {
   const response = await shopflowApi.delete<ApiResult<any>>(
-    `/api/suppliers/${id}`
+    `/suppliers/${id}`
   )
 
   if (!response.success) {

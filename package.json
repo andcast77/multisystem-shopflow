@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3002",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -11,8 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:run": "vitest run",
-    "generate-pwa-icons": "tsx scripts/generate-pwa-icons.ts"
+    "test:run": "vitest run"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

@@ -158,10 +158,12 @@ export async function printToNetworkPrinter(
   const commands = generateESCPOSCommands(content, ticketConfig)
 
   try {
-    // Send to network printer via raw socket (requires backend proxy)
-    const response = await fetch('/api/printers/network-print', {
+    const { API_URL, getAuthHeaders } = await import('@/lib/api/client')
+    const url = `${API_URL.replace(/\/$/, '')}/api/shopflow/printers/network-print`
+    const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      credentials: 'include',
       body: JSON.stringify({
         ip,
         port,
