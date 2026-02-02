@@ -40,23 +40,24 @@ export function ReceiptModal({ saleId, open, onClose }: ReceiptModalProps) {
   }
 
   // Type assertion: getSaleById returns Sale with relations
+  type SaleItemWithProduct = {
+    id: string
+    quantity: number
+    price: number
+    discount: number
+    subtotal: number
+    product: {
+      id: string
+      name: string
+      sku: string
+      barcode: string | null
+      price: number
+    }
+  }
   const saleWithRelations = sale as typeof sale & {
     customer: { id: string; name: string } | null
     user: { id: string; name: string; email: string }
-    items: Array<{
-      id: string
-      quantity: number
-      price: number
-      discount: number
-      subtotal: number
-      product: {
-        id: string
-        name: string
-        sku: string
-        barcode: string | null
-        price: number
-      }
-    }>
+    items: SaleItemWithProduct[]
   }
 
   return (
@@ -109,7 +110,7 @@ export function ReceiptModal({ saleId, open, onClose }: ReceiptModalProps) {
           {/* Items */}
           <div className="space-y-2">
             <h3 className="font-semibold">Artículos</h3>
-            {saleWithRelations.items.map((item) => (
+            {saleWithRelations.items.map((item: SaleItemWithProduct) => (
               <div key={item.id} className="flex justify-between text-sm">
                 <div className="flex-1">
                   <p className="font-medium">{item.product.name}</p>
