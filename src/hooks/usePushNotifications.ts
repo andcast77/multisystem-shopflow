@@ -5,14 +5,6 @@ import { useMutation } from '@tanstack/react-query'
 import { useUser } from '@/hooks/useUser'
 import { shopflowApi } from '@/lib/api/client'
 
-interface PushSubscription {
-  endpoint: string
-  keys: {
-    p256dh: string
-    auth: string
-  }
-}
-
 const VAPID_PUBLIC_KEY = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY : undefined
 
 /**

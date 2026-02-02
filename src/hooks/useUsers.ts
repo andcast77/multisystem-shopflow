@@ -55,7 +55,6 @@ export function useCreateCompanyMember(companyId: string | null | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['companyMembers', companyId] })
     },
-    enabled: !!companyId,
   })
 }
 
