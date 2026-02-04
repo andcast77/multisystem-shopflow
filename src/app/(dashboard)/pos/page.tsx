@@ -6,6 +6,7 @@ import { ShoppingCart } from '@/components/features/pos/ShoppingCart'
 import { TotalsPanel } from '@/components/features/pos/TotalsPanel'
 import { PaymentModal } from '@/components/features/pos/PaymentModal'
 import { ReceiptModal } from '@/components/features/pos/ReceiptModal'
+import { CustomerSelector } from '@/components/features/pos/CustomerSelector'
 import { useStoreConfig } from '@/hooks/useStoreConfig'
 
 export default function POSPage() {
@@ -29,12 +30,14 @@ export default function POSPage() {
     <div className="h-[calc(100vh-8rem)] flex flex-col gap-4">
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
         {/* Products Panel - Left Side */}
-        <div className="lg:col-span-7 overflow-hidden">
+        <div className="lg:col-span-5 overflow-hidden">
           <ProductPanel />
         </div>
 
-        {/* Cart and Totals - Right Side */}
-        <div className="lg:col-span-5 flex flex-col gap-4 overflow-hidden">
+        {/* Cart and Totals - Right Side (50% + a bit more) */}
+        <div className="lg:col-span-7 flex flex-col gap-4 overflow-hidden">
+          {/* Cliente para la venta */}
+          <CustomerSelector />
           {/* Shopping Cart */}
           <div className="flex-1 min-h-0">
             <ShoppingCart />

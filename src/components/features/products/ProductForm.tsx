@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createProductSchema, updateProductSchema, type CreateProductInput, type UpdateProductInput } from '@/lib/validations/product'
 import { Button } from '@/components/ui/button'
@@ -24,16 +24,18 @@ interface ProductFormProps {
   isLoading?: boolean
 }
 
+const NO_CATEGORY_VALUE = '__none__'
+
 export function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
   const { data: categoriesData } = useCategories()
   const categories: Category[] = Array.isArray(categoriesData) ? categoriesData : []
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
     setValue,
-    watch,
   } = useForm<Partial<CreateProductInput>>({
     resolver: zodResolver(initialData ? updateProductSchema : createProductSchema),
     defaultValues: {
@@ -50,8 +52,6 @@ export function ProductForm({ initialData, onSubmit, isLoading }: ProductFormPro
     },
   })
 
-  const categoryId = watch('categoryId')
-
   useEffect(() => {
     if (initialData?.categoryId) {
       setValue('categoryId', initialData.categoryId)
@@ -59,7 +59,11 @@ export function ProductForm({ initialData, onSubmit, isLoading }: ProductFormPro
   }, [initialData?.categoryId, setValue])
 
   const onFormSubmit = async (data: Partial<CreateProductInput>) => {
-    await onSubmit(data as CreateProductInput | UpdateProductInput)
+    const payload = {
+      ...data,
+      categoryId: data.categoryId === undefined || data.categoryId === '' ? null : data.categoryId,
+    }
+    await onSubmit(payload as CreateProductInput | UpdateProductInput)
   }
 
   return (
@@ -114,22 +118,28 @@ export function ProductForm({ initialData, onSubmit, isLoading }: ProductFormPro
         {/* Category */}
         <div className="space-y-2">
           <Label htmlFor="categoryId">Categoría</Label>
-          <Select
-            value={categoryId || ''}
-            onValueChange={(value) => setValue('categoryId', value || undefined)}
-          >
-            <SelectTrigger id="categoryId" className={errors.categoryId ? 'border-red-500' : ''}>
-              <SelectValue placeholder="Seleccionar categoría" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">Sin categoría</SelectItem>
-              {categories.map((category) => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Controller
+            name="categoryId"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={field.value || NO_CATEGORY_VALUE}
+                onValueChange={(value) => field.onChange(value === NO_CATEGORY_VALUE ? null : value)}
+              >
+                <SelectTrigger id="categoryId" className={errors.categoryId ? 'border-red-500' : ''}>
+                  <SelectValue placeholder="Seleccionar categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_CATEGORY_VALUE}>Sin categoría</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
           {errors.categoryId && (
             <p className="text-sm text-red-500">{errors.categoryId.message}</p>
           )}

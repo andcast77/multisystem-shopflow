@@ -98,6 +98,7 @@ export interface Product {
   stock: number
   minStock: number | null
   categoryId: string | null
+  categoryName?: string | null
   barcode: string | null
   sku: string | null
   supplierId?: string | null

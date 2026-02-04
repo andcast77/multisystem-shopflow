@@ -2,20 +2,22 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useProducts } from '@/hooks/useProducts'
+import { useStoreConfig } from '@/hooks/useStoreConfig'
 import { useCartStore } from '@/store/cartStore'
+import { formatCurrency } from '@/lib/utils/format'
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { ShoppingCart, Search } from 'lucide-react'
+import { Search, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { BarcodeScanResult } from '@/lib/services/barcodeService'
 
 export function ProductPanel() {
   const [search, setSearch] = useState('')
+  const { data: storeConfig } = useStoreConfig()
   const { data, isLoading } = useProducts({ search, page: 1, limit: 100 })
   const addItem = useCartStore((state) => state.addItem)
+  const currency = storeConfig?.currency ?? 'USD'
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Barcode scanner integration
@@ -42,6 +44,10 @@ export function ProductPanel() {
     }
   }, [barcodeRef])
 
+  useEffect(() => {
+    searchInputRef.current?.focus()
+  }, [])
+
   const handleAddToCart = (product: {
     id: string
     name: string
@@ -61,6 +67,7 @@ export function ProductPanel() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
+            ref={searchInputRef}
             type="text"
             placeholder="Buscar productos o escanear código de barras..."
             value={search}
@@ -87,32 +94,20 @@ export function ProductPanel() {
               >
                 <CardContent className="p-4">
                   <div className="flex flex-col gap-2">
-                    <div className="flex items-start justify-between">
-                      <h3 className="font-semibold text-sm line-clamp-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold text-sm line-clamp-2 flex-1 min-w-0">
                         {product.name}
                       </h3>
-                      <Badge
-                        variant={product.stock > 0 ? 'default' : 'destructive'}
-                        className="ml-2 shrink-0"
-                      >
-                        {product.stock}
-                      </Badge>
+                      {product.minStock != null && product.stock <= product.minStock && (
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" title="Stock bajo" />
+                      )}
                     </div>
-                    <p className="text-xs text-gray-500">{product.sku}</p>
-                    <div className="flex items-center justify-between mt-auto">
+                    <p className="text-[11px] text-muted-foreground/80">{product.sku ?? '—'}</p>
+                    <p className="text-[11px] text-muted-foreground/70">Stock: {product.stock}</p>
+                    <div className="mt-auto">
                       <span className="text-lg font-bold">
-                        ${product.price.toFixed(2)}
+                        {formatCurrency(Number(product.price), currency)}
                       </span>
-                      <Button
-                        size="sm"
-                        disabled={product.stock === 0}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleAddToCart(product)
-                        }}
-                      >
-                        <ShoppingCart className="h-4 w-4" />
-                      </Button>
                     </div>
                   </div>
                 </CardContent>

@@ -13,31 +13,64 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 type CompanyOption = { id: string; name: string; workifyEnabled: boolean; shopflowEnabled: boolean }
 
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7 // 7 días
+const TOKEN_COOKIE_NAME = 'token'
 
 function setTokenCookie(token: string) {
-  document.cookie = `token=${encodeURIComponent(token)}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`
+  document.cookie = `${TOKEN_COOKIE_NAME}=${encodeURIComponent(token)}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`
+}
+
+function getTokenFromCookie(): string | null {
+  if (typeof document === 'undefined') return null
+  const cookies = document.cookie.split(';')
+  for (const cookie of cookies) {
+    const [rawName, ...rest] = cookie.trim().split('=')
+    if (rawName === TOKEN_COOKIE_NAME) {
+      try {
+        return decodeURIComponent(rest.join('='))
+      } catch {
+        return null
+      }
+    }
+  }
+  return null
 }
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(() => Boolean(getTokenFromCookie()))
   const [companies, setCompanies] = useState<CompanyOption[] | null>(null)
   const [selectingCompany, setSelectingCompany] = useState(false)
 
   // Verificar si el usuario ya está autenticado (solo vía API)
   useEffect(() => {
+    let isActive = true
+    const token = getTokenFromCookie()
+
+    if (!token) {
+      setIsCheckingAuth(false)
+      return
+    }
+
     const checkAuth = async () => {
       try {
         await authApi.get('/me')
         window.location.href = '/dashboard'
         return
       } catch {
-        setIsCheckingAuth(false)
+        // Si la API falla, mostrar el formulario
+      } finally {
+        if (isActive) {
+          setIsCheckingAuth(false)
+        }
       }
     }
 
     checkAuth()
+
+    return () => {
+      isActive = false
+    }
   }, [])
 
   const {

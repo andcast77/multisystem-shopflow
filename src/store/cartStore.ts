@@ -7,19 +7,29 @@ export interface CartItem {
   discount: number
 }
 
+/** Discounts are stored as percentage (0-100). */
 interface CartStore {
   items: CartItem[]
   customerId: string | null
+  /** Global discount as percentage (0-100). */
   discount: number
   addItem: (product: CartItem['product'], quantity?: number) => void
   removeItem: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
+  /** Set per-item discount as percentage (0-100). */
   updateDiscount: (productId: string, discount: number) => void
+  /** Set global discount as percentage (0-100). */
   setGlobalDiscount: (discount: number) => void
   setCustomer: (customerId: string | null) => void
   clearCart: () => void
   getSubtotal: () => number
   getTotal: () => number
+  /** Subtotal before global discount (for display/API). */
+  getSubtotalBeforeGlobal: () => number
+  /** Global discount amount in currency. */
+  getGlobalDiscountAmount: () => number
+  /** Per-item discount amount in currency (item.discount is %). */
+  getItemDiscountAmount: (item: CartItem) => number
 }
 
 export const useCartStore = create<CartStore>((set, get) => ({
@@ -78,14 +88,14 @@ export const useCartStore = create<CartStore>((set, get) => ({
     set({
       items: get().items.map((item) =>
         item.product.id === productId
-          ? { ...item, discount: Math.max(0, discount) }
+          ? { ...item, discount: Math.max(0, Math.min(100, discount)) }
           : item
       ),
     })
   },
 
   setGlobalDiscount: (discount) => {
-    set({ discount: Math.max(0, discount) })
+    set({ discount: Math.max(0, Math.min(100, discount)) })
   },
 
   setCustomer: (customerId) => {
@@ -101,17 +111,31 @@ export const useCartStore = create<CartStore>((set, get) => ({
   },
 
   getSubtotal: () => {
-    const { items, discount: globalDiscount } = get()
-    const itemsTotal = items.reduce(
-      (sum, item) =>
-        sum + (item.product.price * item.quantity - item.discount),
-      0
-    )
-    return itemsTotal - globalDiscount
+    const beforeGlobal = get().getSubtotalBeforeGlobal()
+    const globalPct = get().discount
+    return beforeGlobal * (1 - globalPct / 100)
   },
 
   getTotal: () => {
     return get().getSubtotal()
+  },
+
+  getSubtotalBeforeGlobal: () => {
+    const { items } = get()
+    return items.reduce((sum, item) => {
+      const price = Number(item.product.price)
+      return sum + price * item.quantity * (1 - (item.discount || 0) / 100)
+    }, 0)
+  },
+
+  getGlobalDiscountAmount: () => {
+    const before = get().getSubtotalBeforeGlobal()
+    return before * (get().discount / 100)
+  },
+
+  getItemDiscountAmount: (item: CartItem) => {
+    const price = Number(item.product.price)
+    return price * item.quantity * ((item.discount || 0) / 100)
   },
 }))
 

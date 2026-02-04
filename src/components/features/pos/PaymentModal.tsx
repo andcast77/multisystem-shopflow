@@ -29,8 +29,9 @@ interface PaymentModalProps {
 export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
   const items = useCartStore((state) => state.items)
   const customerId = useCartStore((state) => state.customerId)
-  const discount = useCartStore((state) => state.discount)
   const clearCart = useCartStore((state) => state.clearCart)
+  const getItemDiscountAmount = useCartStore((state) => state.getItemDiscountAmount)
+  const getGlobalDiscountAmount = useCartStore((state) => state.getGlobalDiscountAmount)
   const { data: storeConfig } = useStoreConfig()
   const { data: customerPoints } = useCustomerPoints(customerId)
   const { data: loyaltyConfig } = useLoyaltyConfig()
@@ -46,9 +47,10 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
   const [pointsDiscount, setPointsDiscount] = useState(0)
 
   const taxRate = storeConfig?.taxRate || 0
+  const currency = storeConfig?.currency ?? 'USD'
   const subtotal = useCartStore((state) => state.getSubtotal())
-  const tax = (subtotal - discount - pointsDiscount) * taxRate
-  const total = subtotal - discount - pointsDiscount + tax
+  const tax = (subtotal - pointsDiscount) * taxRate
+  const total = subtotal - pointsDiscount + tax
   const change = paymentMethod === 'CASH' && paidAmount
     ? parseFloat(paidAmount) - total
     : 0
@@ -97,11 +99,11 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
             productId: item.product.id,
             quantity: item.quantity,
             price: item.product.price,
-            discount: item.discount ?? 0,
+            discount: getItemDiscountAmount(item),
           })),
           paymentMethod,
           paidAmount: parseFloat(paidAmount) || total,
-          discount: discount + pointsDiscount,
+          discount: getGlobalDiscountAmount() + pointsDiscount,
           taxRate,
           notes: notes || null,
         },
@@ -186,7 +188,7 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
               ) : (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-green-700">
-                    Descuento aplicado: {formatCurrency(pointsDiscount)}
+                    Descuento aplicado: {formatCurrency(pointsDiscount, currency)}
                   </span>
                   <Button
                     type="button"
@@ -205,13 +207,13 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
             <Label>Total a Pagar</Label>
             <Input
               type="text"
-              value={formatCurrency(total)}
+              value={formatCurrency(total, currency)}
               disabled
               className="mt-1 font-bold"
             />
             {pointsDiscount > 0 && (
               <p className="text-xs text-green-600 mt-1">
-                Descuento por puntos: -{formatCurrency(pointsDiscount)}
+                Descuento por puntos: -{formatCurrency(pointsDiscount, currency)}
               </p>
             )}
           </div>
@@ -230,12 +232,12 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
               />
               {change >= 0 && (
                 <p className="text-sm text-green-600 mt-1">
-                  Cambio: {formatCurrency(change)}
+                  Cambio: {formatCurrency(change, currency)}
                 </p>
               )}
               {change < 0 && (
                 <p className="text-sm text-red-600 mt-1">
-                  Faltan: {formatCurrency(Math.abs(change))}
+                  Faltan: {formatCurrency(Math.abs(change), currency)}
                 </p>
               )}
             </div>

@@ -273,19 +273,29 @@ function RoleBadge({ role }: { role: string }) {
   )
 }
 
-const SHOPFLOW_LAST_COMPANY_KEY = 'shopflow_last_company_id'
 const COMPANY_SELECT_PLACEHOLDER = '__none__'
+
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 7 // 7 días
+function setTokenCookie(token: string) {
+  document.cookie = `token=${encodeURIComponent(token)}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`
+}
+
+/** Query keys that depend on company; invalidate on company change (not currentUser). */
+const COMPANY_DATA_QUERY_KEYS = [
+  ['products'], ['sales'], ['customers'], ['categories'], ['suppliers'],
+  ['store-config'], ['ticket-config'], ['reports'], ['inventory'],
+  ['companyMembers'], ['backups'], ['loyalty'], ['user-preferences'],
+] as const
 
 export function Sidebar() {
   const pathname = usePathname()
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const queryClient = useQueryClient()
-  const autoRestoreDone = useRef(false)
   const autoSelectFirstDone = useRef(false)
   const isChangingCompany = useRef(false)
   const { data: user, isLoading: isLoadingUser } = useUser()
   const isSuperuser = user?.isSuperuser === true
-  const companiesQuery = useCompanies(!!user)
+  const companiesQuery = useCompanies(true)
   const allCompanies = companiesQuery.data ?? []
   const companies =
     isSuperuser ? allCompanies : allCompanies.filter((c) => c.shopflowEnabled)
@@ -293,60 +303,25 @@ export function Sidebar() {
     !!user &&
     (isSuperuser || !user.companyId || companies.length > 1)
 
-  useEffect(() => {
-    if (
-      typeof window === 'undefined' ||
-      autoRestoreDone.current ||
-      !user ||
-      user.companyId
-    )
-      return
-    if (!companiesQuery.isSuccess || !companiesQuery.data?.length) return
-    const savedId = localStorage.getItem(SHOPFLOW_LAST_COMPANY_KEY)
-    if (!savedId) return
-    const list = user.isSuperuser ? companiesQuery.data : companiesQuery.data.filter((c) => c.shopflowEnabled)
-    if (!list.some((c) => c.id === savedId)) return
-    autoRestoreDone.current = true
-    authApi
-      .post<{ success?: boolean; data?: { token: string }; error?: string }>(
-        '/context',
-        { companyId: savedId }
-      )
-      .then((res) => {
-        if (
-          res &&
-          typeof res === 'object' &&
-          'data' in res &&
-          res.success &&
-          res.data?.token
-        ) {
-          const maxAge = 60 * 60 * 24 * 7
-          document.cookie = `token=${encodeURIComponent(res.data.token)}; path=/; max-age=${maxAge}; SameSite=Lax`
-          void queryClient.invalidateQueries()
-        }
-      })
-      .catch(() => {})
-  }, [user, companiesQuery.isSuccess, companiesQuery.data, queryClient])
-
-  // Auto-select first company when no savedId and user has no companyId
+  // Auto-select first company when user has no companyId and no preferredCompanyId
   useEffect(() => {
     if (
       typeof window === 'undefined' ||
       autoSelectFirstDone.current ||
       !user ||
-      user.companyId
+      user.companyId ||
+      user.preferredCompanyId
     )
       return
     if (!companiesQuery.isSuccess || !companies.length) return
-    const savedId = localStorage.getItem(SHOPFLOW_LAST_COMPANY_KEY)
-    if (savedId) return
     autoSelectFirstDone.current = true
     const firstId = companies[0].id
     authApi
-      .post<{ success?: boolean; data?: { token: string }; error?: string }>(
-        '/context',
-        { companyId: firstId }
-      )
+      .post<{
+        success?: boolean
+        data?: { token: string; companyId?: string; company?: { id: string; name: string; workifyEnabled: boolean; shopflowEnabled: boolean } }
+        error?: string
+      }>('/context', { companyId: firstId })
       .then((res) => {
         if (
           res &&
@@ -355,14 +330,15 @@ export function Sidebar() {
           res.success &&
           res.data?.token
         ) {
-          const maxAge = 60 * 60 * 24 * 7
-          document.cookie = `token=${encodeURIComponent(res.data.token)}; path=/; max-age=${maxAge}; SameSite=Lax`
-          try {
-            localStorage.setItem(SHOPFLOW_LAST_COMPANY_KEY, firstId)
-          } catch {
-            // ignore
-          }
-          void queryClient.invalidateQueries()
+          setTokenCookie(res.data.token)
+          const newCompanyId = res.data.companyId ?? firstId
+          const newCompany = res.data.company
+          queryClient.setQueryData(['currentUser'], (prev: unknown) => {
+            if (prev && typeof prev === 'object' && prev !== null) {
+              return { ...prev, companyId: newCompanyId, company: newCompany ?? (prev as { company?: unknown }).company }
+            }
+            return prev
+          })
         }
       })
       .catch(() => {
@@ -377,7 +353,7 @@ export function Sidebar() {
     try {
       const res = await authApi.post<{
         success?: boolean
-        data?: { token: string }
+        data?: { token: string; companyId?: string; company?: { id: string; name: string; workifyEnabled: boolean; shopflowEnabled: boolean } }
         error?: string
       }>('/context', { companyId })
       if (
@@ -387,15 +363,18 @@ export function Sidebar() {
         res.success &&
         res.data?.token
       ) {
-        try {
-          localStorage.setItem(SHOPFLOW_LAST_COMPANY_KEY, companyId)
-        } catch {
-          // ignore
+        setTokenCookie(res.data.token)
+        const newCompanyId = res.data.companyId ?? companyId
+        const newCompany = res.data.company
+        queryClient.setQueryData(['currentUser'], (prev: unknown) => {
+          if (prev && typeof prev === 'object' && prev !== null) {
+            return { ...prev, companyId: newCompanyId, company: newCompany ?? (prev as { company?: unknown }).company }
+          }
+          return prev
+        })
+        for (const key of COMPANY_DATA_QUERY_KEYS) {
+          void queryClient.invalidateQueries({ queryKey: key })
         }
-        const maxAge = 60 * 60 * 24 * 7
-        document.cookie = `token=${encodeURIComponent(res.data.token)}; path=/; max-age=${maxAge}; SameSite=Lax`
-        // Invalidar todas las queries para que productos, ventas, clientes, etc. se recarguen con la nueva empresa
-        await queryClient.invalidateQueries()
       }
     } catch {
       // ignore

@@ -3,7 +3,7 @@
 import { useRouter, useParams } from 'next/navigation'
 import { useState } from 'react'
 import Link from 'next/link'
-import { useCategory, useUpdateCategory } from '@/hooks/useCategories'
+import { useCategory, useUpdateCategory, useDeleteCategory } from '@/hooks/useCategories'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { updateCategorySchema, type UpdateCategoryInput } from '@/lib/validations/category'
@@ -12,7 +12,18 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { ArrowLeft, Trash2 } from 'lucide-react'
 
 export default function CategoryDetailPage() {
   const router = useRouter()
@@ -20,7 +31,9 @@ export default function CategoryDetailPage() {
   const id = params.id as string
   const { data: category, isLoading } = useCategory(id)
   const updateCategory = useUpdateCategory()
+  const deleteCategory = useDeleteCategory()
   const [error, setError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const {
     register,
@@ -41,6 +54,18 @@ export default function CategoryDetailPage() {
     }
   }
 
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true)
+      setError(null)
+      await deleteCategory.mutateAsync(id)
+      router.push('/categories')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al eliminar la categoría')
+      setIsDeleting(false)
+    }
+  }
+
   if (isLoading) return <div className="flex items-center justify-center p-8 text-gray-500">Cargando...</div>
   if (!category) return <div className="flex items-center justify-center p-8 text-red-500">Categoría no encontrada</div>
 
@@ -51,9 +76,37 @@ export default function CategoryDetailPage() {
           <h1 className="text-3xl font-bold tracking-tight">{category.name}</h1>
           <p className="text-muted-foreground">Editar información de la categoría</p>
         </div>
-        <Link href="/categories">
-          <Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Volver</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/categories">
+            <Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Volver</Button>
+          </Link>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Eliminar categoría?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta acción no se puede deshacer. Se eliminará la categoría &quot;{category.name}&quot;.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
       <Card>
         <CardHeader>

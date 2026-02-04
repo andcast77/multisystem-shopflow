@@ -32,6 +32,8 @@ export const productQuerySchema = z.object({
   lowStock: z.boolean().optional(),
   page: z.number().int().positive().default(1),
   limit: z.number().int().positive().max(100).default(20),
+  sortBy: z.enum(['name', 'sku', 'price', 'stock', 'active', 'category']).optional().default('name'),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('asc'),
 })
 
 export type ProductQueryInput = z.infer<typeof productQuerySchema>

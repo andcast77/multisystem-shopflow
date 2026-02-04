@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { useSale } from '@/hooks/useSales'
+import { useStoreConfig } from '@/hooks/useStoreConfig'
 import { useCustomerPoints } from '@/hooks/useLoyalty'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { Separator } from '@/components/ui/separator'
@@ -23,7 +24,9 @@ interface ReceiptModalProps {
 
 export function ReceiptModal({ saleId, open, onClose }: ReceiptModalProps) {
   const { data: sale } = useSale(saleId || '')
-  
+  const { data: storeConfig } = useStoreConfig()
+  const currency = storeConfig?.currency ?? 'USD'
+
   // Extract customerId safely
   const customerId = sale && typeof sale === 'object' && 'customerId' in sale 
     ? (sale.customerId as string | null)
@@ -115,16 +118,16 @@ export function ReceiptModal({ saleId, open, onClose }: ReceiptModalProps) {
                 <div className="flex-1">
                   <p className="font-medium">{item.product.name}</p>
                   <p className="text-gray-600 text-xs">
-                    {item.quantity} x {formatCurrency(item.price)}
+                    {item.quantity} x {formatCurrency(item.price, currency)}
                     {item.discount > 0 && (
                       <span className="text-red-600 ml-2">
-                        -{formatCurrency(item.discount)}
+                        -{formatCurrency(item.discount, currency)}
                       </span>
                     )}
                   </p>
                 </div>
                 <span className="font-semibold">
-                  {formatCurrency(item.subtotal)}
+                  {formatCurrency(item.subtotal, currency)}
                 </span>
               </div>
             ))}
@@ -136,33 +139,33 @@ export function ReceiptModal({ saleId, open, onClose }: ReceiptModalProps) {
           <div className="space-y-2">
             <div className="flex justify-between">
               <span>Subtotal:</span>
-              <span>{formatCurrency(saleWithRelations.subtotal)}</span>
+              <span>{formatCurrency(saleWithRelations.subtotal, currency)}</span>
             </div>
             {saleWithRelations.discount > 0 && (
               <div className="flex justify-between text-red-600">
                 <span>Descuento:</span>
-                <span>-{formatCurrency(saleWithRelations.discount)}</span>
+                <span>-{formatCurrency(saleWithRelations.discount, currency)}</span>
               </div>
             )}
             {saleWithRelations.tax > 0 && (
               <div className="flex justify-between">
                 <span>Impuesto:</span>
-                <span>{formatCurrency(saleWithRelations.tax)}</span>
+                <span>{formatCurrency(saleWithRelations.tax, currency)}</span>
               </div>
             )}
             <Separator />
             <div className="flex justify-between text-lg font-bold">
               <span>Total:</span>
-              <span>{formatCurrency(saleWithRelations.total)}</span>
+              <span>{formatCurrency(saleWithRelations.total, currency)}</span>
             </div>
             <div className="flex justify-between">
               <span>Pagado:</span>
-              <span>{saleWithRelations.paidAmount !== null ? formatCurrency(saleWithRelations.paidAmount) : formatCurrency(saleWithRelations.total)}</span>
+              <span>{saleWithRelations.paidAmount !== null ? formatCurrency(saleWithRelations.paidAmount, currency) : formatCurrency(saleWithRelations.total, currency)}</span>
             </div>
             {saleWithRelations.change !== null && saleWithRelations.change > 0 && (
               <div className="flex justify-between text-green-600">
                 <span>Cambio:</span>
-                <span>{formatCurrency(saleWithRelations.change)}</span>
+                <span>{formatCurrency(saleWithRelations.change, currency)}</span>
               </div>
             )}
           </div>

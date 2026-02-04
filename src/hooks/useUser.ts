@@ -18,6 +18,7 @@ export interface CurrentUser {
   role: UserRole
   companyId?: string
   company?: CompanyInfo
+  preferredCompanyId?: string
   membershipRole?: string
   isSuperuser?: boolean
   createdAt: Date
@@ -25,12 +26,13 @@ export interface CurrentUser {
 }
 
 type MeResponse =
-  | { success: true; data: { id: string; email: string; name: string | null; role: string; active?: boolean; companyId?: string; membershipRole?: string; isSuperuser?: boolean; createdAt: string; updatedAt: string } }
+  | { success: true; data: { id: string; email: string; name: string | null; role: string; active?: boolean; companyId?: string; preferredCompanyId?: string; membershipRole?: string; isSuperuser?: boolean; createdAt: string; updatedAt: string } }
   | { success: false; error?: string }
   | { user: CurrentUser }
 
 /**
- * Get current user from API (token sent via client from cookie)
+ * Get current user from API (token sent via client from cookie).
+ * La API asigna en BD la empresa preferida si faltaba; el cliente obtiene token con empresa vía POST /context.
  */
 async function getCurrentUser(): Promise<CurrentUser> {
   const response = await authApi.get<MeResponse>('/me')
@@ -52,6 +54,7 @@ async function getCurrentUser(): Promise<CurrentUser> {
     role: user.role as UserRole,
     companyId: dataObj?.companyId as string | undefined,
     company: dataObj?.company as CompanyInfo | undefined,
+    preferredCompanyId: (dataObj?.preferredCompanyId ?? dataObj?.shopflowPreferredCompanyId) as string | undefined,
     membershipRole: dataObj?.membershipRole as string | undefined,
     isSuperuser: dataObj?.isSuperuser as boolean | undefined,
     createdAt: typeof user.createdAt === 'string' ? new Date(user.createdAt) : user.createdAt,

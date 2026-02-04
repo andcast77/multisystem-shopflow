@@ -1,5 +1,5 @@
 // Simplified product service that uses remote APIs
-import { shopflowApi } from '@/lib/api/client'
+import { shopflowApi, type ApiResult } from '@/lib/api/client'
 import type { Product } from '@/types'
 import type { CreateProductInput, UpdateProductInput, ProductQueryInput } from '@/lib/validations/product'
 
@@ -18,6 +18,8 @@ export async function getProducts(query: ProductQueryInput = { page: 1, limit: 2
     lowStock,
     page = 1,
     limit = 20,
+    sortBy = 'name',
+    sortOrder = 'asc',
   } = query
 
   // Build query parameters
@@ -32,12 +34,22 @@ export async function getProducts(query: ProductQueryInput = { page: 1, limit: 2
   if (minPrice !== undefined) params.append('minPrice', minPrice.toString())
   if (maxPrice !== undefined) params.append('maxPrice', maxPrice.toString())
   if (lowStock !== undefined) params.append('lowStock', lowStock.toString())
+  if (sortBy) params.append('sortBy', sortBy)
+  if (sortOrder) params.append('sortOrder', sortOrder)
 
-  return await shopflowApi.get<ProductsResponse>(`/products?${params}`)
+  const response = await shopflowApi.get<ApiResult<ProductsResponse>>(`/products?${params}`)
+  if (!response.success) {
+    throw new Error(response.error ?? 'Error al obtener productos')
+  }
+  return response.data
 }
 
 export async function getProductById(id: string): Promise<Product> {
-  return await shopflowApi.get<Product>(`/products/${id}`)
+  const response = await shopflowApi.get<ApiResult<Product>>(`/products/${id}`)
+  if (!response.success) {
+    throw new Error(response.error ?? 'Producto no encontrado')
+  }
+  return response.data
 }
 
 export async function getProductBySku(sku: string) {
@@ -49,11 +61,19 @@ export async function getProductByBarcode(barcode: string) {
 }
 
 export async function createProduct(data: CreateProductInput): Promise<Product> {
-  return await shopflowApi.post<Product>('/products', data)
+  const response = await shopflowApi.post<ApiResult<Product>>('/products', data)
+  if (!response.success) {
+    throw new Error(response.error ?? 'Error al crear producto')
+  }
+  return response.data
 }
 
 export async function updateProduct(id: string, data: UpdateProductInput): Promise<Product> {
-  return await shopflowApi.put<Product>(`/products/${id}`, data)
+  const response = await shopflowApi.put<ApiResult<Product>>(`/products/${id}`, data)
+  if (!response.success) {
+    throw new Error(response.error ?? 'Error al actualizar producto')
+  }
+  return response.data
 }
 
 export async function deleteProduct(id: string) {
