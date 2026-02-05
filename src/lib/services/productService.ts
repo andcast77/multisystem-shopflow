@@ -8,7 +8,7 @@ export interface ProductsResponse {
   pagination: { page: number; limit: number; total: number; totalPages: number }
 }
 
-export async function getProducts(query: ProductQueryInput = { page: 1, limit: 20 }): Promise<ProductsResponse> {
+export async function getProducts(query: ProductQueryInput = { page: 1, limit: 20, sortBy: 'name', sortOrder: 'asc' }): Promise<ProductsResponse> {
   const {
     search,
     categoryId,

@@ -91,7 +91,7 @@ export function ProductList({ onProductClick }: ProductListProps) {
     return product.minStock !== null && product.stock <= product.minStock
   }
 
-  const handleDelete = async (id: string, name: string) => {
+  const handleDelete = async (id: string, _name: string) => {
     try {
       await deleteProduct.mutateAsync(id)
     } catch {

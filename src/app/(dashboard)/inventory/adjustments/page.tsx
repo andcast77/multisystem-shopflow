@@ -22,7 +22,7 @@ import type { AdjustInventoryInput } from '@/lib/validations/inventory'
 export default function InventoryAdjustmentsPage() {
   const router = useRouter()
   const [selectedProductId, setSelectedProductId] = useState<string>('')
-  const { data: productsData } = useProducts({ page: 1, limit: 1000 })
+  const { data: productsData } = useProducts({ page: 1, limit: 1000, sortBy: 'name', sortOrder: 'asc' })
   const adjustInventory = useAdjustInventory()
   const [error, setError] = useState<string | null>(null)
 

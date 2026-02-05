@@ -15,7 +15,7 @@ import type { BarcodeScanResult } from '@/lib/services/barcodeService'
 export function ProductPanel() {
   const [search, setSearch] = useState('')
   const { data: storeConfig } = useStoreConfig()
-  const { data, isLoading } = useProducts({ search, page: 1, limit: 100 })
+  const { data, isLoading } = useProducts({ search, page: 1, limit: 100, sortBy: 'name', sortOrder: 'asc' })
   const addItem = useCartStore((state) => state.addItem)
   const currency = storeConfig?.currency ?? 'USD'
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -99,7 +99,9 @@ export function ProductPanel() {
                         {product.name}
                       </h3>
                       {product.minStock != null && product.stock <= product.minStock && (
-                        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" title="Stock bajo" />
+                        <span title="Stock bajo" className="shrink-0">
+                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                        </span>
                       )}
                     </div>
                     <p className="text-[11px] text-muted-foreground/80">{product.sku ?? '—'}</p>

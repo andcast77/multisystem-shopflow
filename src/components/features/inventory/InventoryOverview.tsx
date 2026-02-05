@@ -6,7 +6,7 @@ import { useProducts } from '@/hooks/useProducts'
 import { useLowStockProducts } from '@/hooks/useInventory'
 
 export function InventoryOverview() {
-  const { data: productsData } = useProducts({ page: 1, limit: 1000 })
+  const { data: productsData } = useProducts({ page: 1, limit: 1000, sortBy: 'name', sortOrder: 'asc' })
   const { data: lowStockData } = useLowStockProducts()
 
   const products = productsData?.products || []
