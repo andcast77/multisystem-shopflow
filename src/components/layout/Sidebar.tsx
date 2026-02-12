@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -15,8 +15,6 @@ import {
   LayoutDashboard,
   ShoppingCart,
   Gift,
-  Menu,
-  X,
   Store,
   MapPin,
   Package,
@@ -199,6 +197,40 @@ function NavItemComponent({ item, pathname, onNavigate }: {
   )
 }
 
+function IconNavItem({ item, pathname, onNavigate }: { 
+  item: NavItem
+  pathname: string
+  onNavigate: () => void
+}) {
+  const moduleToCheck = item.module ?? Module.REPORTS
+  const moduleAccess = useModuleAccess(moduleToCheck)
+  const hasAccess = item.module ? moduleAccess : true
+
+  if (!hasAccess) {
+    return null
+  }
+
+  const Icon = item.icon
+  const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      aria-current={isActive ? 'page' : undefined}
+      title={item.title}
+      className={cn(
+        'flex h-11 w-11 items-center justify-center rounded-xl transition-colors',
+        isActive
+          ? 'bg-indigo-600 text-white shadow-sm'
+          : 'text-slate-600 hover:bg-slate-100'
+      )}
+    >
+      <Icon className="h-5 w-5" />
+    </Link>
+  )
+}
+
 // Component for navigation group
 function NavGroupComponent({ group, pathname, onNavigate }: {
   group: NavGroup
@@ -290,7 +322,6 @@ const COMPANY_DATA_QUERY_KEYS = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const [isMobileOpen, setIsMobileOpen] = useState(false)
   const queryClient = useQueryClient()
   const autoSelectFirstDone = useRef(false)
   const isChangingCompany = useRef(false)
@@ -385,56 +416,59 @@ export function Sidebar() {
     }
   }
 
-  const handleMobileClose = () => {
-    setIsMobileOpen(false)
-  }
+  const handleMobileClose = () => {}
 
   return (
     <>
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setIsMobileOpen(!isMobileOpen)}
-          aria-label={isMobileOpen ? 'Cerrar menú' : 'Abrir menú'}
-          aria-expanded={isMobileOpen}
-          className="h-10 w-10 touch-manipulation"
-        >
-          {isMobileOpen ? (
-            <X className="h-5 w-5" />
-          ) : (
-            <Menu className="h-5 w-5" />
-          )}
-        </Button>
-      </div>
-
-      {/* Mobile overlay */}
-      {isMobileOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40 backdrop-blur-sm transition-opacity duration-300 ease-in-out"
-          onClick={handleMobileClose}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              handleMobileClose()
-            }
-          }}
-          aria-hidden="true"
-        />
-      )}
+      {/* Mobile icon rail */}
+      <aside
+        className="lg:hidden sticky top-0 z-40 h-screen w-16 shrink-0 border-r border-slate-200 bg-slate-50 shadow-xl"
+        aria-label="Navegación principal"
+        role="navigation"
+      >
+        <div className="flex h-full flex-col items-center py-4 bg-slate-50">
+          <Link
+            href="/dashboard"
+            className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-xs font-semibold text-white"
+            aria-label="Ir al dashboard"
+          >
+            SF
+          </Link>
+          <ScrollArea className="flex-1 w-full">
+            <nav className="flex flex-col items-center gap-2 py-2" aria-label="Navegación principal">
+              {navGroups.map((group) => (
+                <div key={group.title} className="flex flex-col items-center gap-2">
+                  {group.items.map((item) => (
+                    <IconNavItem key={item.href} item={item} pathname={pathname} onNavigate={handleMobileClose} />
+                  ))}
+                </div>
+              ))}
+            </nav>
+          </ScrollArea>
+          <div className="pt-3">
+            <Link
+              href="/account"
+              onClick={handleMobileClose}
+              aria-label="Ver mi cuenta"
+              className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100"
+            >
+              <UserAvatar name={user?.name} />
+            </Link>
+          </div>
+        </div>
+      </aside>
 
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen w-64 border-r border-gray-200 bg-white shadow-lg',
+          'hidden lg:flex sticky top-0 z-40 h-screen shrink-0 border-r border-slate-200 bg-slate-50 shadow-xl',
           'transition-transform duration-300 ease-in-out',
-          'lg:translate-x-0 lg:shadow-none',
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full'
+          'lg:translate-x-0 lg:shadow-none'
         )}
         aria-label="Navegación principal"
         role="navigation"
       >
-        <div className="flex h-full flex-col">
+        <div className="flex h-full flex-col bg-slate-50">
           {/* Header: un solo control = desplegable de empresa (icono + texto dentro del selector) */}
           <div className="border-b border-gray-200 px-4 py-3 min-w-0">
             {needCompanySelector ? (
@@ -540,8 +574,8 @@ export function Sidebar() {
           </div>
 
           {/* Navigation */}
-          <ScrollArea className="flex-1">
-            <nav className="p-4 space-y-4" aria-label="Navegación principal">
+          <ScrollArea className="flex-1 bg-slate-50">
+            <nav className="p-4 space-y-4 bg-slate-50" aria-label="Navegación principal">
               {navGroups.map((group, groupIndex) => (
                 <div key={group.title}>
                   <NavGroupComponent
@@ -558,7 +592,7 @@ export function Sidebar() {
           </ScrollArea>
 
           {/* Footer */}
-          <div className="border-t border-gray-200 p-4">
+          <div className="border-t border-gray-200 p-4 bg-slate-50">
             {isLoadingUser ? (
               <div className="flex items-center gap-3 px-3 py-2">
                 <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200" />

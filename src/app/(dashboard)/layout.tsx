@@ -12,9 +12,9 @@ export default function DashboardLayout({
     <ShopflowModuleGuard>
       <CompanyContextBootstrap>
         <StoreProvider>
-          <div className="min-h-screen bg-gray-50">
+          <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.12),_transparent_45%),radial-gradient(circle_at_bottom,_rgba(59,130,246,0.12),_transparent_45%)] bg-slate-50 flex overflow-x-hidden">
             <Sidebar />
-            <div className="lg:pl-64">
+            <div className="flex-1 min-w-0">
               <main className="py-6 px-4 sm:px-6 lg:px-8">{children}</main>
             </div>
           </div>
