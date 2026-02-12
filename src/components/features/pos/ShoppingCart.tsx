@@ -6,14 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Trash2, ShoppingCart as CartIcon } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/format'
 
@@ -61,33 +53,37 @@ export function ShoppingCart() {
       </CardHeader>
       <CardContent className="flex-1 flex flex-col overflow-hidden p-0">
         <ScrollArea className="flex-1">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="font-semibold w-[min(140px,30%)]">Producto</TableHead>
-                <TableHead className="font-semibold w-[64px] text-center">Cant.</TableHead>
-                <TableHead className="font-semibold w-[70px] text-right">P. unit.</TableHead>
-                <TableHead className="font-semibold w-[52px] text-right">Desc. %</TableHead>
-                <TableHead className="font-semibold text-right">Subtotal</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <div className="w-full">
+            {/* Header */}
+            <div className="grid grid-cols-[minmax(80px,auto)_1fr_minmax(60px,auto)_minmax(75px,auto)_minmax(65px,auto)_minmax(85px,auto)_40px] gap-x-2 border-b bg-muted/30 px-3 py-2.5 text-xs font-semibold text-muted-foreground">
+              <div className="truncate">SKU</div>
+              <div className="truncate">Producto</div>
+              <div className="text-center truncate">Cant.</div>
+              <div className="text-right truncate">P. unit.</div>
+              <div className="text-right truncate">Desc. %</div>
+              <div className="text-right truncate">Subtotal</div>
+              <div></div>
+            </div>
+            {/* Items */}
+            <div className="divide-y">
               {items.map((item) => {
                 const price = Number(item.product.price)
                 const itemSubtotal =
                   price * item.quantity * (1 - (item.discount || 0) / 100)
                 return (
-                  <TableRow key={item.product.id}>
-                    <TableCell className="py-2 align-top">
-                      <div className="flex items-baseline gap-2 min-w-0">
-                        <span className="text-[11px] text-muted-foreground/70 tabular-nums shrink-0">
-                          {item.product.sku ?? '—'}
-                        </span>
-                        <span className="font-medium line-clamp-2 min-w-0">{item.product.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-2 align-top">
+                  <div
+                    key={item.product.id}
+                    className="grid grid-cols-[minmax(80px,auto)_1fr_minmax(60px,auto)_minmax(75px,auto)_minmax(65px,auto)_minmax(85px,auto)_40px] gap-x-2 px-3 py-2.5 hover:bg-muted/30 transition-colors items-center"
+                  >
+                    <div className="min-w-0">
+                      <span className="text-xs text-muted-foreground/80 tabular-nums truncate block">
+                        {item.product.sku ?? '—'}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="font-medium text-sm line-clamp-2 block">{item.product.name}</span>
+                    </div>
+                    <div className="flex justify-center">
                       <Input
                         type="number"
                         value={item.quantity}
@@ -97,14 +93,16 @@ export function ShoppingCart() {
                             parseInt(e.target.value) || 1
                           )
                         }
-                        className="h-7 w-12 text-center text-sm tabular-nums"
+                        className="h-8 w-full max-w-[60px] text-center text-sm tabular-nums px-1"
                         min={1}
                       />
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground py-2 align-top text-sm tabular-nums">
-                      {formatCurrency(price, currency)}
-                    </TableCell>
-                    <TableCell className="py-2 align-top">
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm text-muted-foreground tabular-nums whitespace-nowrap">
+                        {formatCurrency(price, currency)}
+                      </span>
+                    </div>
+                    <div className="flex justify-end">
                       <Input
                         type="number"
                         placeholder="0"
@@ -112,30 +110,32 @@ export function ShoppingCart() {
                         onChange={(e) =>
                           handleDiscountChange(item.product.id, e.target.value)
                         }
-                        className="h-7 w-12 text-right text-sm tabular-nums p-1"
+                        className="h-8 w-full max-w-[65px] text-right text-sm tabular-nums px-1"
                         min={0}
                         max={100}
                         step={0.1}
                       />
-                    </TableCell>
-                    <TableCell className="text-right font-semibold py-2 align-top tabular-nums">
-                      {formatCurrency(itemSubtotal, currency)}
-                    </TableCell>
-                    <TableCell className="py-2 align-top">
+                    </div>
+                    <div className="text-right">
+                      <span className="font-semibold text-sm tabular-nums whitespace-nowrap">
+                        {formatCurrency(itemSubtotal, currency)}
+                      </span>
+                    </div>
+                    <div className="flex justify-center">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
                         onClick={() => removeItem(item.product.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                  </div>
                 )
               })}
-            </TableBody>
-          </Table>
+            </div>
+          </div>
         </ScrollArea>
       </CardContent>
     </Card>

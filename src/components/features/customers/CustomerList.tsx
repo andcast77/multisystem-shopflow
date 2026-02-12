@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { useCustomers } from '@/hooks/useCustomers'
+import { useCustomers, useDeleteCustomer } from '@/hooks/useCustomers'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -13,21 +13,39 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Plus, Search, User, Mail, Phone } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { Plus, Search, User, Mail, Phone, Edit, Trash2, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react'
 import type { Customer } from '@/types'
 
 interface CustomerListProps {
   onCustomerClick?: (customer: Customer) => void
 }
 
+type SortCol = 'name' | 'email' | 'phone' | 'city' | 'sales'
+type SortOrder = 'asc' | 'desc'
+
 export function CustomerList({ onCustomerClick }: CustomerListProps) {
   const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState<SortCol>('name')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
 
   const query = {
     search: search || undefined,
   }
 
   const { data: customers, isLoading, error } = useCustomers(query)
+  const deleteCustomer = useDeleteCustomer()
 
   // Type assertion to include _count that comes from API
   const customersWithCount = (customers || []).map(customer => customer as typeof customer & {
@@ -36,20 +54,72 @@ export function CustomerList({ onCustomerClick }: CustomerListProps) {
     }
   })
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-gray-500">Cargando clientes...</div>
-      </div>
+  const filteredAndSorted = useMemo(() => {
+    let list = customersWithCount.filter((c) =>
+      search ? c.name.toLowerCase().includes(search.toLowerCase()) ||
+                c.email?.toLowerCase().includes(search.toLowerCase()) ||
+                c.phone?.toLowerCase().includes(search.toLowerCase()) : true
+    )
+    
+    return [...list].sort((a, b) => {
+      let aVal: string | number
+      let bVal: string | number
+      
+      switch (sortBy) {
+        case 'name':
+          aVal = (a.name ?? '').toLowerCase()
+          bVal = (b.name ?? '').toLowerCase()
+          break
+        case 'email':
+          aVal = (a.email ?? '').toLowerCase()
+          bVal = (b.email ?? '').toLowerCase()
+          break
+        case 'phone':
+          aVal = (a.phone ?? '').toLowerCase()
+          bVal = (b.phone ?? '').toLowerCase()
+          break
+        case 'city':
+          aVal = (a.city ?? '').toLowerCase()
+          bVal = (b.city ?? '').toLowerCase()
+          break
+        case 'sales':
+          aVal = a._count?.sales ?? 0
+          bVal = b._count?.sales ?? 0
+          break
+        default:
+          aVal = ''
+          bVal = ''
+      }
+      
+      const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0
+      return sortOrder === 'asc' ? cmp : -cmp
+    })
+  }, [customersWithCount, search, sortBy, sortOrder])
+
+  const toggleSort = (column: SortCol) => {
+    if (sortBy === column) {
+      setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortBy(column)
+      setSortOrder('asc')
+    }
+  }
+
+  const SortIcon = ({ column }: { column: SortCol }) => {
+    if (sortBy !== column) return <ChevronsUpDown className="ml-1 h-4 w-4 text-muted-foreground" />
+    return sortOrder === 'asc' ? (
+      <ChevronUp className="ml-1 h-4 w-4" />
+    ) : (
+      <ChevronDown className="ml-1 h-4 w-4" />
     )
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-red-500">Error al cargar clientes: {String(error)}</div>
-      </div>
-    )
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteCustomer.mutateAsync(id)
+    } catch {
+      // Error already surfaced by mutation / list refetch
+    }
   }
 
   return (
@@ -73,8 +143,15 @@ export function CustomerList({ onCustomerClick }: CustomerListProps) {
         </Link>
       </div>
 
-      {/* Customers Table */}
-      {customersWithCount && customersWithCount.length > 0 ? (
+      {/* Error state */}
+      {error && (
+        <div className="flex items-center justify-center rounded-lg border border-dashed border-red-200 bg-red-50/50 p-8">
+          <p className="text-sm text-red-600">Error al cargar clientes: {String(error)}</p>
+        </div>
+      )}
+
+      {/* Loading skeleton */}
+      {!error && isLoading && (
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -88,7 +165,62 @@ export function CustomerList({ onCustomerClick }: CustomerListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {customersWithCount.map((customer) => (
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-8 w-12 ml-auto" /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Customers Table */}
+      {!error && !isLoading && filteredAndSorted && filteredAndSorted.length > 0 ? (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  <Button variant="ghost" className="-ml-3 h-8 font-semibold" onClick={() => toggleSort('name')}>
+                    Nombre
+                    <SortIcon column="name" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button variant="ghost" className="-ml-3 h-8 font-semibold" onClick={() => toggleSort('email')}>
+                    Email
+                    <SortIcon column="email" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button variant="ghost" className="-ml-3 h-8 font-semibold" onClick={() => toggleSort('phone')}>
+                    Teléfono
+                    <SortIcon column="phone" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button variant="ghost" className="-ml-3 h-8 font-semibold" onClick={() => toggleSort('city')}>
+                    Ciudad
+                    <SortIcon column="city" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button variant="ghost" className="-ml-3 h-8 font-semibold" onClick={() => toggleSort('sales')}>
+                    Compras
+                    <SortIcon column="sales" />
+                  </Button>
+                </TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredAndSorted.map((customer) => (
                 <TableRow
                   key={customer.id}
                   className={onCustomerClick ? 'cursor-pointer' : ''}
@@ -134,19 +266,45 @@ export function CustomerList({ onCustomerClick }: CustomerListProps) {
                       <span className="text-gray-400">0</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <Link href={`/customers/${customer.id}`}>
-                      <Button variant="ghost" size="sm">
-                        Ver
-                      </Button>
-                    </Link>
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex justify-end gap-2">
+                      <Link href={`/customers/${customer.id}`}>
+                        <Button variant="ghost" size="sm" title="Editar">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="sm" title="Eliminar">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar cliente?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta acción eliminará el cliente &quot;{customer.name}&quot;. Esta acción no se puede deshacer.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(customer.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              {deleteCustomer.isPending ? 'Eliminando...' : 'Eliminar'}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
-      ) : (
+      ) : !error && !isLoading ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12">
           <User className="h-12 w-12 text-gray-400" />
           <h3 className="mt-4 text-lg font-semibold">No hay clientes</h3>
@@ -164,7 +322,7 @@ export function CustomerList({ onCustomerClick }: CustomerListProps) {
             </Link>
           )}
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

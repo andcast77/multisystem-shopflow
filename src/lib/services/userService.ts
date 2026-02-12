@@ -16,6 +16,7 @@ export async function getCompanyMembers(companyId: string) {
       name: m.name ?? m.email,
       role: m.membershipRole ?? 'USER',
       active: true,
+      storeIds: m.storeIds ?? [],
     })),
     pagination: { page: 1, limit: data.length, total: data.length, totalPages: 1 },
   }
@@ -23,11 +24,30 @@ export async function getCompanyMembers(companyId: string) {
 
 export async function createCompanyMember(
   companyId: string,
-  data: { email: string; password: string; firstName?: string; lastName?: string; membershipRole: 'ADMIN' | 'USER' }
+  data: {
+    email: string
+    password: string
+    firstName?: string
+    lastName?: string
+    membershipRole: 'ADMIN' | 'USER'
+    storeIds?: string[]
+  }
 ) {
   const response = await companiesApi.createMember<{ success: boolean; data: any; error?: string }>(companyId, data)
   if (!response.success) {
     throw new ApiError(400, (response as { error?: string }).error || 'Error al crear usuario', ErrorCodes.VALIDATION_ERROR)
+  }
+  return (response as { data: any }).data
+}
+
+export async function updateMemberStores(companyId: string, userId: string, storeIds: string[]) {
+  const response = await companiesApi.updateMemberStores<{ success: boolean; data?: any; error?: string }>(
+    companyId,
+    userId,
+    storeIds
+  )
+  if (!response.success) {
+    throw new ApiError(400, (response as { error?: string }).error || 'Error al actualizar locales', ErrorCodes.VALIDATION_ERROR)
   }
   return (response as { data: any }).data
 }

@@ -8,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useModuleAccess } from '@/hooks/usePermissions'
 import { useUser } from '@/hooks/useUser'
 import { useCompanies } from '@/hooks/useCompanies'
+import { useStoreContextOptional } from '@/components/providers/StoreContext'
 import { authApi } from '@/lib/api/client'
 import { Module } from '@/lib/permissions'
 import {
@@ -16,8 +17,8 @@ import {
   Gift,
   Menu,
   X,
-  LogOut,
   Store,
+  MapPin,
   Package,
   Users,
   Warehouse,
@@ -302,6 +303,7 @@ export function Sidebar() {
   const needCompanySelector =
     !!user &&
     (isSuperuser || !user.companyId || companies.length > 1)
+  const storeContext = useStoreContextOptional()
 
   // Auto-select first company when user has no companyId and no preferredCompanyId
   useEffect(() => {
@@ -381,16 +383,6 @@ export function Sidebar() {
     } finally {
       isChangingCompany.current = false
     }
-  }
-
-  const handleLogout = async () => {
-    try {
-      await authApi.post('/logout')
-    } catch {
-      // ignore
-    }
-    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-    window.location.href = '/login'
   }
 
   const handleMobileClose = () => {
@@ -490,6 +482,61 @@ export function Sidebar() {
                 </h1>
               </div>
             )}
+            {/* Local de venta: debajo del selector de empresa */}
+            {user?.companyId && storeContext && (() => {
+              const { stores, isLoading, isError, currentStoreId, setCurrentStoreId, setReportStoreId } = storeContext
+              const activeStores = stores.filter((s) => s.active)
+              if (isLoading) {
+                return (
+                  <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground px-1">
+                    <MapPin className="h-4 w-4 shrink-0" />
+                    <span>Cargando locales...</span>
+                  </div>
+                )
+              }
+              if (isError) {
+                return (
+                  <div className="mt-3 text-sm text-amber-700 px-1" title="Error al cargar locales. Revisa que la API esté en marcha y uses la misma base de datos.">
+                    <MapPin className="h-4 w-4 inline-block mr-1.5 align-middle" />
+                    Error al cargar locales
+                  </div>
+                )
+              }
+              if (activeStores.length === 0) {
+                return (
+                  <div className="mt-3 text-sm text-muted-foreground px-1" title="Ejecuta el seed en la carpeta database contra la misma base de datos que usa la API (misma DATABASE_URL).">
+                    <MapPin className="h-4 w-4 inline-block mr-1.5 align-middle" />
+                    Sin locales de venta
+                  </div>
+                )
+              }
+              return (
+                <Select
+                  value={currentStoreId ?? activeStores[0]?.id ?? ''}
+                  onValueChange={(id) => {
+                    setCurrentStoreId(id || null)
+                    setReportStoreId(id || null)
+                  }}
+                >
+                  <SelectTrigger
+                    className="mt-3 w-full h-10 pl-3 pr-3 text-left border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer gap-2"
+                    aria-label="Seleccionar local de venta"
+                  >
+                    <MapPin className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="flex-1 truncate text-sm">
+                      <SelectValue placeholder="Seleccionar local de venta" />
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent sideOffset={4} className="max-h-[min(16rem,70vh)]">
+                    {activeStores.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name} ({s.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )
+            })()}
           </div>
 
           {/* Navigation */}
@@ -521,28 +568,22 @@ export function Sidebar() {
                 </div>
               </div>
             ) : user ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 px-3 py-2">
-                  <UserAvatar name={user.name} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {user.name}
-                    </p>
-                    <div className="mt-1">
-                      <RoleBadge role={user.role} />
-                    </div>
+              <Link
+                href="/account"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-gray-100"
+                onClick={handleMobileClose}
+                aria-label="Ver mi cuenta"
+              >
+                <UserAvatar name={user.name} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {user.name}
+                  </p>
+                  <div className="mt-1">
+                    <RoleBadge role={user.role} />
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start gap-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                  onClick={handleLogout}
-                  aria-label="Cerrar sesión"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span>Cerrar Sesión</span>
-                </Button>
-              </div>
+              </Link>
             ) : null}
           </div>
         </div>

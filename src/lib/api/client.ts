@@ -15,6 +15,18 @@ function getTokenFromCookie(): string | null {
   }
 }
 
+/** Current store ID for X-Store-Id header (set by StoreContext). */
+declare global {
+  interface Window {
+    __SHOPFLOW_STORE_ID?: string | null
+  }
+}
+function getStoreIdHeader(): string | null {
+  if (typeof window === 'undefined') return null
+  const id = window.__SHOPFLOW_STORE_ID
+  return id && typeof id === 'string' && id.trim() ? id.trim() : null
+}
+
 class ApiClient {
   private baseURL: string
 
@@ -34,6 +46,10 @@ class ApiClient {
     const token = getTokenFromCookie()
     if (token && !headers.has('Authorization')) {
       headers.set('Authorization', `Bearer ${token}`)
+    }
+    const storeId = getStoreIdHeader()
+    if (storeId && !headers.has('X-Store-Id')) {
+      headers.set('X-Store-Id', storeId)
     }
 
     const response = await fetch(url, {
@@ -120,8 +136,17 @@ export const companiesApi = {
   getMembers: <T>(companyId: string) => apiClient.get<T>(`/api/companies/${companyId}/members`),
   createMember: <T>(
     companyId: string,
-    data: { email: string; password: string; firstName?: string; lastName?: string; membershipRole: 'ADMIN' | 'USER' }
+    data: {
+      email: string
+      password: string
+      firstName?: string
+      lastName?: string
+      membershipRole: 'ADMIN' | 'USER'
+      storeIds?: string[]
+    }
   ) => apiClient.post<T>(`/api/companies/${companyId}/members`, data),
+  updateMemberStores: <T>(companyId: string, userId: string, storeIds: string[]) =>
+    apiClient.put<T>(`/api/companies/${companyId}/members/${userId}/stores`, { storeIds }),
 }
 
 // Generic API response types

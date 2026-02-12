@@ -7,6 +7,7 @@ export const createUserSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   role: z.nativeEnum(UserRole),
   active: z.boolean(),
+  storeIds: z.array(z.string()).optional(),
 })
 
 export type CreateUserInput = z.infer<typeof createUserSchema>
@@ -17,6 +18,7 @@ export const updateUserSchema = z.object({
   name: z.string().min(1, 'Name is required').optional(),
   role: z.nativeEnum(UserRole).optional(),
   active: z.boolean().optional(),
+  storeIds: z.array(z.string()).optional(),
 })
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>

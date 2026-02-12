@@ -12,8 +12,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-export function TopProductsTable() {
-  const { data, isLoading } = useTopProducts(10)
+interface TopProductsTableProps {
+  storeId?: string | null
+}
+
+export function TopProductsTable({ storeId }: TopProductsTableProps = {}) {
+  const { data, isLoading } = useTopProducts(10, undefined, undefined, undefined, storeId)
 
   if (isLoading) {
     return (

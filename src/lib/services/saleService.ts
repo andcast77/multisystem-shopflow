@@ -8,6 +8,7 @@ import { SaleStatus } from '@/types'
 
 export async function getSales(query: SaleQueryInput = { page: 1, limit: 20 }) {
   const {
+    storeId,
     customerId,
     userId,
     status,
@@ -23,6 +24,7 @@ export async function getSales(query: SaleQueryInput = { page: 1, limit: 20 }) {
     limit: limit.toString(),
   })
 
+  if (storeId) params.append('storeId', storeId)
   if (customerId) params.append('customerId', customerId)
   if (userId) params.append('userId', userId)
   if (status) params.append('status', status)
@@ -123,10 +125,11 @@ export async function createSale(userId: string, data: CreateSaleInput) {
   // Reserve next invoice number (API may use it when creating the sale)
   await getNextInvoiceNumber()
 
-  // Create sale via API
+  // Create sale via API (X-Store-Id is sent by client from StoreContext when set)
   const response = await shopflowApi.post<ApiResult<any>>(
     '/sales',
     {
+      storeId: data.storeId ?? null,
       customerId: data.customerId ?? null,
       userId,
       items: data.items,

@@ -16,10 +16,11 @@ import { format } from 'date-fns'
 
 interface DailySalesChartProps {
   days?: number
+  storeId?: string | null
 }
 
-export function DailySalesChart({ days = 30 }: DailySalesChartProps) {
-  const { data, isLoading } = useDailySales(days)
+export function DailySalesChart({ days = 30, storeId }: DailySalesChartProps) {
+  const { data, isLoading } = useDailySales(days, storeId)
 
   if (isLoading) {
     return (

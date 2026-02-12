@@ -13,6 +13,7 @@ export type SaleItemInput = z.infer<typeof saleItemSchema>
 
 // Schema for creating a sale
 export const createSaleSchema = z.object({
+  storeId: z.string().optional().nullable(),
   customerId: z.string().optional().nullable(),
   items: z.array(saleItemSchema).min(1, 'At least one item is required'),
   paymentMethod: z.nativeEnum(PaymentMethod),
@@ -26,6 +27,7 @@ export type CreateSaleInput = z.infer<typeof createSaleSchema>
 
 // Schema for sale query/filters
 export const saleQuerySchema = z.object({
+  storeId: z.string().optional(),
   customerId: z.string().optional(),
   userId: z.string().optional(),
   status: z.nativeEnum(SaleStatus).optional(),

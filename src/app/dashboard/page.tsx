@@ -7,19 +7,23 @@ import { TopProductsTable } from '@/components/features/reports/TopProductsTable
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useInventoryStats } from '@/hooks/useReports'
+import { useStoreContextOptional } from '@/components/providers/StoreContext'
 import { formatCurrency } from '@/lib/utils/format'
 import { Package, AlertTriangle, XCircle } from 'lucide-react'
 
 export default function DashboardPage() {
   const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today')
-  const { data: inventoryStats } = useInventoryStats()
+  const storeContext = useStoreContextOptional()
+  const effectiveReportStoreId = storeContext?.reportStoreId ?? storeContext?.currentStoreId ?? undefined
+  const { data: inventoryStats } = useInventoryStats(effectiveReportStoreId)
 
   return (
     <div className="space-y-6">
-      {/* Period Selector */}
-      <div className="flex items-center justify-between">
+      {/* Period selector */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-4">
+          <div className="flex gap-2">
           <Button
             variant={period === 'today' ? 'default' : 'outline'}
             size="sm"
@@ -42,10 +46,11 @@ export default function DashboardPage() {
             Mes
           </Button>
         </div>
+        </div>
       </div>
 
       {/* Stats Cards */}
-      <StatsCards period={period} />
+      <StatsCards period={period} storeId={effectiveReportStoreId} />
 
       {/* Charts and Tables */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
@@ -54,7 +59,7 @@ export default function DashboardPage() {
             <CardTitle>Resumen</CardTitle>
           </CardHeader>
           <CardContent>
-            <DailySalesChart days={period === 'today' ? 7 : period === 'week' ? 30 : 90} />
+            <DailySalesChart days={period === 'today' ? 7 : period === 'week' ? 30 : 90} storeId={effectiveReportStoreId} />
           </CardContent>
         </Card>
 
@@ -121,7 +126,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Top Products */}
-      <TopProductsTable />
+      <TopProductsTable storeId={effectiveReportStoreId} />
     </div>
   )
 }

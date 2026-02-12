@@ -31,12 +31,14 @@ export default function NewUserPage() {
       const parts = (createData.name || '').trim().split(/\s+/)
       const firstName = parts[0] ?? ''
       const lastName = parts.slice(1).join(' ') ?? ''
+      const membershipRole = createData.role === 'ADMIN' ? 'ADMIN' : 'USER'
       await createCompanyMember.mutateAsync({
         email: createData.email,
         password: createData.password,
         firstName: firstName || undefined,
         lastName: lastName || undefined,
-        membershipRole: createData.role === 'ADMIN' ? 'ADMIN' : 'USER',
+        membershipRole,
+        storeIds: membershipRole === 'USER' ? createData.storeIds : undefined,
       })
       router.push('/admin/users')
     } catch (err) {

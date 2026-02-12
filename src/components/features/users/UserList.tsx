@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useUser } from '@/hooks/useUser'
-import { useCompanyMembers } from '@/hooks/useUsers'
+import { useCompanyMembers, useDeleteUser } from '@/hooks/useUsers'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -21,20 +21,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Search, User as UserIcon } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { Plus, Search, User as UserIcon, Edit, Trash2, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { UserRole } from '@/types'
 
 const PAGE_SIZE = 20
 
+type SortCol = 'name' | 'email' | 'role' | 'active'
+type SortOrder = 'asc' | 'desc'
+
 export function UserList() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [page, setPage] = useState(1)
+  const [sortBy, setSortBy] = useState<SortCol>('name')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
 
   const { data: currentUser, isLoading: isLoadingUser } = useUser()
   const companyId = currentUser?.companyId
   const companyMembersQuery = useCompanyMembers(companyId)
+  const deleteUser = useDeleteUser()
 
   const allMembers = companyMembersQuery.data?.users ?? []
   const filteredAndPaginated = useMemo(() => {
@@ -50,12 +68,44 @@ export function UserList() {
     if (roleFilter !== 'all') {
       list = list.filter((u) => (u.role ?? 'USER') === roleFilter)
     }
+    
+    // Sort the list
+    list = [...list].sort((a, b) => {
+      let aVal: string | boolean
+      let bVal: string | boolean
+      
+      switch (sortBy) {
+        case 'name':
+          aVal = (a.name ?? '').toLowerCase()
+          bVal = (b.name ?? '').toLowerCase()
+          break
+        case 'email':
+          aVal = (a.email ?? '').toLowerCase()
+          bVal = (b.email ?? '').toLowerCase()
+          break
+        case 'role':
+          aVal = (a.role ?? 'USER')
+          bVal = (b.role ?? 'USER')
+          break
+        case 'active':
+          aVal = a.active
+          bVal = b.active
+          break
+        default:
+          aVal = ''
+          bVal = ''
+      }
+      
+      const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0
+      return sortOrder === 'asc' ? cmp : -cmp
+    })
+    
     const total = list.length
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
     const start = (page - 1) * PAGE_SIZE
     const paginated = list.slice(start, start + PAGE_SIZE)
     return { users: paginated, total, totalPages }
-  }, [allMembers, search, roleFilter, page])
+  }, [allMembers, search, roleFilter, page, sortBy, sortOrder])
 
   const { users, total: totalFiltered, totalPages } = filteredAndPaginated
   const pagination = {
@@ -94,8 +144,60 @@ export function UserList() {
     }
   }
 
+  const toggleSort = (column: SortCol) => {
+    if (sortBy === column) {
+      setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortBy(column)
+      setSortOrder('asc')
+    }
+    setPage(1)
+  }
+
+  const SortIcon = ({ column }: { column: SortCol }) => {
+    if (sortBy !== column) return <ChevronsUpDown className="ml-1 h-4 w-4 text-muted-foreground" />
+    return sortOrder === 'asc' ? (
+      <ChevronUp className="ml-1 h-4 w-4" />
+    ) : (
+      <ChevronDown className="ml-1 h-4 w-4" />
+    )
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteUser.mutateAsync(id)
+    } catch {
+      // Error already surfaced by mutation / list refetch
+    }
+  }
+
   if (isLoadingUser) {
-    return <div className="flex items-center justify-center p-8 text-gray-500">Cargando...</div>
+    return (
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Rol</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="h-8 w-12 ml-auto" /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    )
   }
 
   if (!companyId) {
@@ -112,14 +214,39 @@ export function UserList() {
 
   if (companyMembersQuery.error) {
     return (
-      <div className="flex items-center justify-center p-8 text-red-500">
-        Error: {String(companyMembersQuery.error)}
+      <div className="flex items-center justify-center rounded-lg border border-dashed border-red-200 bg-red-50/50 p-8">
+        <p className="text-sm text-red-600">Error al cargar usuarios: {String(companyMembersQuery.error)}</p>
       </div>
     )
   }
 
   if (companyMembersQuery.isLoading) {
-    return <div className="flex items-center justify-center p-8 text-gray-500">Cargando usuarios...</div>
+    return (
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Rol</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="h-8 w-12 ml-auto" /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    )
   }
 
   return (
@@ -161,10 +288,30 @@ export function UserList() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Rol</TableHead>
-                  <TableHead>Estado</TableHead>
+                  <TableHead>
+                    <Button variant="ghost" className="-ml-3 h-8 font-semibold" onClick={() => toggleSort('name')}>
+                      Nombre
+                      <SortIcon column="name" />
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button variant="ghost" className="-ml-3 h-8 font-semibold" onClick={() => toggleSort('email')}>
+                      Email
+                      <SortIcon column="email" />
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button variant="ghost" className="-ml-3 h-8 font-semibold" onClick={() => toggleSort('role')}>
+                      Rol
+                      <SortIcon column="role" />
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button variant="ghost" className="-ml-3 h-8 font-semibold" onClick={() => toggleSort('active')}>
+                      Estado
+                      <SortIcon column="active" />
+                    </Button>
+                  </TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -189,9 +336,37 @@ export function UserList() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Link href={`/admin/users/${user.id}`}>
-                        <Button variant="ghost" size="sm">Ver</Button>
-                      </Link>
+                      <div className="flex justify-end gap-2">
+                        <Link href={`/admin/users/${user.id}`}>
+                          <Button variant="ghost" size="sm" title="Editar">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" title="Eliminar">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>¿Eliminar usuario?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta acción eliminará el usuario &quot;{user.name}&quot;. Esta acción no se puede deshacer.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(user.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                {deleteUser.isPending ? 'Eliminando...' : 'Eliminar'}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -52,29 +52,38 @@ export function CustomerSelector() {
           <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Buscar cliente por nombre, email o teléfono..."
-            value={customerId && selectedCustomer ? '' : search}
+            placeholder="Buscar cliente por nombre o identificación..."
+            value={customerId && selectedCustomer ? selectedCustomer.name : search}
             onChange={(e) => {
+              if (customerId && selectedCustomer) {
+                setCustomer(null)
+                setSearch('')
+              }
               setSearch(e.target.value)
               if (!e.target.value) setCustomer(null)
               setOpen(true)
             }}
-            onFocus={() => setOpen(true)}
+            onFocus={() => {
+              if (customerId && selectedCustomer) {
+                setCustomer(null)
+                setSearch('')
+              }
+              setOpen(true)
+            }}
+            onClick={() => {
+              if (customerId && selectedCustomer) {
+                setCustomer(null)
+                setSearch('')
+              }
+              setOpen(true)
+            }}
             className="pl-9"
-            readOnly={!!(customerId && selectedCustomer)}
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck="false"
+            data-form-type="other"
           />
-          {customerId && selectedCustomer && (
-            <div className="absolute inset-0 flex items-center pl-9 pointer-events-none">
-              <span className="text-sm truncate">
-                {selectedCustomer.name}
-                {(selectedCustomer as { email?: string | null }).email && (
-                  <span className="text-muted-foreground ml-1">
-                    ({(selectedCustomer as { email: string }).email})
-                  </span>
-                )}
-              </span>
-            </div>
-          )}
           {showList && (
             <ul
               className={cn(
@@ -115,11 +124,6 @@ export function CustomerSelector() {
                     }}
                   >
                     <span className="font-medium">{c.name}</span>
-                    {(c.email || c.phone) && (
-                      <span className="text-muted-foreground text-xs ml-1">
-                        {[c.email, c.phone].filter(Boolean).join(' · ')}
-                      </span>
-                    )}
                   </button>
                 </li>
               ))}

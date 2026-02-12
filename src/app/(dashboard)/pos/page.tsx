@@ -7,6 +7,7 @@ import { TotalsPanel } from '@/components/features/pos/TotalsPanel'
 import { PaymentModal } from '@/components/features/pos/PaymentModal'
 import { ReceiptModal } from '@/components/features/pos/ReceiptModal'
 import { CustomerSelector } from '@/components/features/pos/CustomerSelector'
+import { StoreSelector } from '@/components/features/pos/StoreSelector'
 import { useStoreConfig } from '@/hooks/useStoreConfig'
 
 export default function POSPage() {
@@ -28,6 +29,10 @@ export default function POSPage() {
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">POS</h1>
+        <StoreSelector />
+      </div>
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
         {/* Products Panel - Left Side */}
         <div className="lg:col-span-5 overflow-hidden">

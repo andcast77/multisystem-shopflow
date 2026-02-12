@@ -7,10 +7,11 @@ import { DollarSign, ShoppingCart, TrendingDown, TrendingUp } from 'lucide-react
 
 interface StatsCardsProps {
   period: 'today' | 'week' | 'month'
+  storeId?: string | null
 }
 
-export function StatsCards({ period }: StatsCardsProps) {
-  const { data: stats, isLoading } = useSalesStats(period)
+export function StatsCards({ period, storeId }: StatsCardsProps) {
+  const { data: stats, isLoading } = useSalesStats(period, storeId)
 
   if (isLoading) {
     return (

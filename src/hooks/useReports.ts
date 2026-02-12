@@ -17,48 +17,55 @@ import {
   getSalesByUser,
 } from '@/lib/services/reportService'
 
-async function fetchSalesStats(period: 'today' | 'week' | 'month'): Promise<SalesStats> {
+async function fetchSalesStats(
+  period: 'today' | 'week' | 'month',
+  storeId?: string | null
+): Promise<SalesStats> {
   switch (period) {
     case 'today':
-      return getTodayStats()
+      return getTodayStats(storeId)
     case 'week':
-      return getWeekStats()
+      return getWeekStats(storeId)
     case 'month':
-      return getMonthStats()
+      return getMonthStats(storeId)
     default:
-      return getTodayStats()
+      return getTodayStats(storeId)
   }
 }
 
-async function fetchDailySales(days: number = 30): Promise<DailySalesData[]> {
-  return getDailySales(days)
+async function fetchDailySales(days: number = 30, storeId?: string | null): Promise<DailySalesData[]> {
+  return getDailySales(days, storeId)
 }
 
 async function fetchTopProducts(
   limit: number = 10,
   startDate?: string,
   endDate?: string,
-  categoryId?: string
+  categoryId?: string,
+  storeId?: string | null
 ): Promise<ProductSalesData[]> {
   return getTopProducts(
     limit,
     startDate ? new Date(startDate) : undefined,
     endDate ? new Date(endDate) : undefined,
-    categoryId
+    categoryId,
+    storeId
   )
 }
 
 async function fetchPaymentMethodStats(
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  storeId?: string | null
 ): Promise<PaymentMethodStats[]> {
   return getPaymentMethodStats(
     startDate ? new Date(startDate) : undefined,
-    endDate ? new Date(endDate) : undefined
+    endDate ? new Date(endDate) : undefined,
+    storeId
   )
 }
 
-async function fetchInventoryStats(): Promise<{
+async function fetchInventoryStats(storeId?: string | null): Promise<{
   totalProducts: number
   lowStockProducts: number
   outOfStockProducts: number
@@ -73,7 +80,7 @@ async function fetchInventoryStats(): Promise<{
     value: number
   }>
 }> {
-  const data = await getInventoryStats()
+  const data = await getInventoryStats(storeId)
   return {
     ...data,
     products: data.products.map((p) => ({
@@ -83,17 +90,17 @@ async function fetchInventoryStats(): Promise<{
   }
 }
 
-export function useSalesStats(period: 'today' | 'week' | 'month' = 'today') {
+export function useSalesStats(period: 'today' | 'week' | 'month' = 'today', storeId?: string | null) {
   return useQuery({
-    queryKey: ['reports', 'stats', period],
-    queryFn: () => fetchSalesStats(period),
+    queryKey: ['reports', 'stats', period, storeId],
+    queryFn: () => fetchSalesStats(period, storeId),
   })
 }
 
-export function useDailySales(days: number = 30) {
+export function useDailySales(days: number = 30, storeId?: string | null) {
   return useQuery({
-    queryKey: ['reports', 'daily-sales', days],
-    queryFn: () => fetchDailySales(days),
+    queryKey: ['reports', 'daily-sales', days, storeId],
+    queryFn: () => fetchDailySales(days, storeId),
   })
 }
 
@@ -101,25 +108,30 @@ export function useTopProducts(
   limit: number = 10,
   startDate?: string,
   endDate?: string,
-  categoryId?: string
+  categoryId?: string,
+  storeId?: string | null
 ) {
   return useQuery({
-    queryKey: ['reports', 'top-products', limit, startDate, endDate, categoryId],
-    queryFn: () => fetchTopProducts(limit, startDate, endDate, categoryId),
+    queryKey: ['reports', 'top-products', limit, startDate, endDate, categoryId, storeId],
+    queryFn: () => fetchTopProducts(limit, startDate, endDate, categoryId, storeId),
   })
 }
 
-export function usePaymentMethodStats(startDate?: string, endDate?: string) {
+export function usePaymentMethodStats(
+  startDate?: string,
+  endDate?: string,
+  storeId?: string | null
+) {
   return useQuery({
-    queryKey: ['reports', 'payment-methods', startDate, endDate],
-    queryFn: () => fetchPaymentMethodStats(startDate, endDate),
+    queryKey: ['reports', 'payment-methods', startDate, endDate, storeId],
+    queryFn: () => fetchPaymentMethodStats(startDate, endDate, storeId),
   })
 }
 
-export function useInventoryStats() {
+export function useInventoryStats(storeId?: string | null) {
   return useQuery({
-    queryKey: ['reports', 'inventory'],
-    queryFn: fetchInventoryStats,
+    queryKey: ['reports', 'inventory', storeId],
+    queryFn: () => fetchInventoryStats(storeId),
   })
 }
 

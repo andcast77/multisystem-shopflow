@@ -31,11 +31,13 @@ export interface PaymentMethodStats {
 
 export async function getSalesStats(
   startDate?: Date,
-  endDate?: Date
+  endDate?: Date,
+  storeId?: string | null
 ): Promise<SalesStats> {
   const params = new URLSearchParams()
   if (startDate) params.append('startDate', startDate.toISOString())
   if (endDate) params.append('endDate', endDate.toISOString())
+  if (storeId) params.append('storeId', storeId)
 
   const response = await shopflowApi.get<{
     success: boolean
@@ -51,10 +53,12 @@ export async function getSalesStats(
 }
 
 export async function getDailySales(
-  days: number = 30
+  days: number = 30,
+  storeId?: string | null
 ): Promise<DailySalesData[]> {
   const params = new URLSearchParams()
   params.append('days', days.toString())
+  if (storeId) params.append('storeId', storeId)
 
   const response = await shopflowApi.get<{
     success: boolean
@@ -73,13 +77,15 @@ export async function getTopProducts(
   limit: number = 10,
   startDate?: Date,
   endDate?: Date,
-  categoryId?: string
+  categoryId?: string,
+  storeId?: string | null
 ): Promise<ProductSalesData[]> {
   const params = new URLSearchParams()
   params.append('limit', limit.toString())
   if (startDate) params.append('startDate', startDate.toISOString())
   if (endDate) params.append('endDate', endDate.toISOString())
   if (categoryId) params.append('categoryId', categoryId)
+  if (storeId) params.append('storeId', storeId)
 
   const response = await shopflowApi.get<{
     success: boolean
@@ -96,11 +102,13 @@ export async function getTopProducts(
 
 export async function getPaymentMethodStats(
   startDate?: Date,
-  endDate?: Date
+  endDate?: Date,
+  storeId?: string | null
 ): Promise<PaymentMethodStats[]> {
   const params = new URLSearchParams()
   if (startDate) params.append('startDate', startDate.toISOString())
   if (endDate) params.append('endDate', endDate.toISOString())
+  if (storeId) params.append('storeId', storeId)
 
   const response = await shopflowApi.get<{
     success: boolean
@@ -115,7 +123,9 @@ export async function getPaymentMethodStats(
   return response.data
 }
 
-export async function getInventoryStats() {
+export async function getInventoryStats(storeId?: string | null) {
+  const params = new URLSearchParams()
+  if (storeId) params.append('storeId', storeId)
   const response = await shopflowApi.get<{
     success: boolean
     data?: {
@@ -134,7 +144,7 @@ export async function getInventoryStats() {
       }>
     }
     error?: string
-  }>('/reports/inventory')
+  }>(`/reports/inventory${params.toString() ? `?${params.toString()}` : ''}`)
 
   if (!response.success || !response.data) {
     throw new Error(response.error || 'Error al obtener estadísticas de inventario')
@@ -143,12 +153,14 @@ export async function getInventoryStats() {
   return response.data
 }
 
-export async function getTodayStats() {
+export async function getTodayStats(storeId?: string | null) {
+  const params = new URLSearchParams()
+  if (storeId) params.append('storeId', storeId)
   const response = await shopflowApi.get<{
     success: boolean
     data?: SalesStats
     error?: string
-  }>('/reports/today')
+  }>(`/reports/today${params.toString() ? `?${params.toString()}` : ''}`)
 
   if (!response.success || !response.data) {
     throw new Error(response.error || 'Error al obtener estadísticas del día')
@@ -157,12 +169,14 @@ export async function getTodayStats() {
   return response.data
 }
 
-export async function getWeekStats() {
+export async function getWeekStats(storeId?: string | null) {
+  const params = new URLSearchParams()
+  if (storeId) params.append('storeId', storeId)
   const response = await shopflowApi.get<{
     success: boolean
     data?: SalesStats
     error?: string
-  }>('/reports/week')
+  }>(`/reports/week${params.toString() ? `?${params.toString()}` : ''}`)
 
   if (!response.success || !response.data) {
     throw new Error(response.error || 'Error al obtener estadísticas de la semana')
@@ -171,12 +185,14 @@ export async function getWeekStats() {
   return response.data
 }
 
-export async function getMonthStats() {
+export async function getMonthStats(storeId?: string | null) {
+  const params = new URLSearchParams()
+  if (storeId) params.append('storeId', storeId)
   const response = await shopflowApi.get<{
     success: boolean
     data?: SalesStats
     error?: string
-  }>('/reports/month')
+  }>(`/reports/month${params.toString() ? `?${params.toString()}` : ''}`)
 
   if (!response.success || !response.data) {
     throw new Error(response.error || 'Error al obtener estadísticas del mes')

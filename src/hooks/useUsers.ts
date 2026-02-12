@@ -9,6 +9,7 @@ import {
   createUser as createUserApi,
   updateUser as updateUserApi,
   deleteUser as deleteUserApi,
+  updateMemberStores,
 } from '@/lib/services/userService'
 
 async function fetchUsers(query?: UserQueryInput): Promise<{ users: User[]; pagination: any }> {
@@ -50,8 +51,25 @@ export function useCompanyMembers(companyId: string | null | undefined) {
 export function useCreateCompanyMember(companyId: string | null | undefined) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: { email: string; password: string; firstName?: string; lastName?: string; membershipRole: 'ADMIN' | 'USER' }) =>
-      createCompanyMember(companyId!, data),
+    mutationFn: (data: {
+      email: string
+      password: string
+      firstName?: string
+      lastName?: string
+      membershipRole: 'ADMIN' | 'USER'
+      storeIds?: string[]
+    }) => createCompanyMember(companyId!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companyMembers', companyId] })
+    },
+  })
+}
+
+export function useUpdateMemberStores(companyId: string | null | undefined) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, storeIds }: { userId: string; storeIds: string[] }) =>
+      updateMemberStores(companyId!, userId, storeIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['companyMembers', companyId] })
     },

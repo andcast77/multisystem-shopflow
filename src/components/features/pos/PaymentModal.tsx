@@ -16,6 +16,7 @@ import { useStoreConfig } from '@/hooks/useStoreConfig'
 import { useCustomerPoints, useRedeemPoints, useLoyaltyConfig } from '@/hooks/useLoyalty'
 import { useUser } from '@/hooks/useUser'
 import { useCreateSale } from '@/hooks/useSales'
+import { useStoreContextOptional } from '@/components/providers/StoreContext'
 import { formatCurrency } from '@/lib/utils/format'
 import { PaymentMethod } from '@/types'
 import { Badge } from '@/components/ui/badge'
@@ -37,6 +38,7 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
   const { data: loyaltyConfig } = useLoyaltyConfig()
   const redeemPointsMutation = useRedeemPoints()
   const { data: user } = useUser()
+  const storeContext = useStoreContextOptional()
   const createSaleMutation = useCreateSale()
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CASH)
@@ -94,6 +96,7 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
       const sale = await createSaleMutation.mutateAsync({
         userId: user.id,
         data: {
+          storeId: storeContext?.currentStoreId ?? null,
           customerId: customerId || null,
           items: items.map((item) => ({
             productId: item.product.id,

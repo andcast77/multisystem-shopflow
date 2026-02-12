@@ -1,9 +1,9 @@
 'use client'
 
 import { useRouter, useParams } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { useUser, useUpdateUser, useDeleteUser } from '@/hooks/useUsers'
+import { useUser, useUpdateUser, useDeleteUser, useCompanyMembers, useUpdateMemberStores } from '@/hooks/useUsers'
 import { UserForm } from '@/components/features/users/UserForm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,9 +26,18 @@ export default function UserDetailPage() {
   const router = useRouter()
   const params = useParams()
   const id = params.id as string
+  const { data: currentUser } = useUser()
+  const companyId = currentUser?.companyId
   const { data: user, isLoading, error } = useUser(id)
+  const companyMembersQuery = useCompanyMembers(companyId)
   const updateUser = useUpdateUser()
+  const updateMemberStores = useUpdateMemberStores(companyId)
   const deleteUser = useDeleteUser()
+
+  const memberData = useMemo(() => {
+    const members = companyMembersQuery.data?.users ?? []
+    return members.find((m) => m.id === id) as { storeIds?: string[]; role?: string } | undefined
+  }, [companyMembersQuery.data, id])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -65,6 +74,10 @@ export default function UserDetailPage() {
         await updateUser.mutateAsync({ id, data: dataWithoutPassword })
       } else {
         await updateUser.mutateAsync({ id, data })
+      }
+      // Update store assignment for USER members
+      if (memberData?.role === 'USER' && companyId && Array.isArray(data.storeIds)) {
+        await updateMemberStores.mutateAsync({ userId: id, storeIds: data.storeIds })
       }
       router.push('/admin/users')
     } catch (err) {
@@ -156,7 +169,20 @@ export default function UserDetailPage() {
         <CardHeader><CardTitle>Editar Usuario</CardTitle></CardHeader>
         <CardContent>
           {errorMessage && <div className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-800">{errorMessage}</div>}
-          <UserForm initialData={user} onSubmit={handleSubmit} isLoading={updateUser.isPending} isEdit={true} />
+          <UserForm
+            initialData={{
+              ...user,
+              role: (memberData?.role === 'OWNER' || memberData?.role === 'ADMIN'
+                ? 'ADMIN'
+                : memberData?.role === 'USER'
+                  ? 'CASHIER'
+                  : (user.role === 'ADMIN' || user.role === 'SUPERADMIN' ? 'ADMIN' : 'CASHIER')) as 'ADMIN' | 'SUPERVISOR' | 'CASHIER',
+              storeIds: memberData?.storeIds ?? [],
+            }}
+            onSubmit={handleSubmit}
+            isLoading={updateUser.isPending || updateMemberStores.isPending}
+            isEdit={true}
+          />
         </CardContent>
       </Card>
     </div>
