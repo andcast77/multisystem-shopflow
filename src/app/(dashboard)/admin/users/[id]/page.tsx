@@ -3,13 +3,15 @@
 import { useRouter, useParams } from 'next/navigation'
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { useUser, useUpdateUser, useDeleteUser, useCompanyMembers, useUpdateMemberStores } from '@/hooks/useUsers'
+import { useUser as useUserQuery, useUpdateUser, useDeleteUser, useCompanyMembers, useUpdateMemberStores } from '@/hooks/useUsers'
+import { useUser as useCurrentUser } from '@/hooks/useUser'
 import { UserForm } from '@/components/features/users/UserForm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Trash2, Mail, Shield } from 'lucide-react'
 import type { UpdateUserInput } from '@/lib/validations/user'
+import { UserRole } from '@/types'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,9 +28,9 @@ export default function UserDetailPage() {
   const router = useRouter()
   const params = useParams()
   const id = params.id as string
-  const { data: currentUser } = useUser()
+  const { data: currentUser } = useCurrentUser()
   const companyId = currentUser?.companyId
-  const { data: user, isLoading, error } = useUser(id)
+  const { data: user, isLoading, error } = useUserQuery(id)
   const companyMembersQuery = useCompanyMembers(companyId)
   const updateUser = useUpdateUser()
   const updateMemberStores = useUpdateMemberStores(companyId)
@@ -63,6 +65,14 @@ export default function UserDetailPage() {
       default:
         return role
     }
+  }
+
+  const mapMemberRoleToUserRole = (memberRole?: string, fallbackRole?: UserRole): UserRole => {
+    if (memberRole === 'OWNER' || memberRole === 'ADMIN') return UserRole.ADMIN
+    if (memberRole === 'USER') return UserRole.CASHIER
+    if (fallbackRole === UserRole.SUPERVISOR) return UserRole.SUPERVISOR
+    if (fallbackRole === UserRole.ADMIN) return UserRole.ADMIN
+    return UserRole.CASHIER
   }
 
   const handleSubmit = async (data: UpdateUserInput) => {
@@ -172,11 +182,7 @@ export default function UserDetailPage() {
           <UserForm
             initialData={{
               ...user,
-              role: (memberData?.role === 'OWNER' || memberData?.role === 'ADMIN'
-                ? 'ADMIN'
-                : memberData?.role === 'USER'
-                  ? 'CASHIER'
-                  : (user.role === 'ADMIN' || user.role === 'SUPERADMIN' ? 'ADMIN' : 'CASHIER')) as 'ADMIN' | 'SUPERVISOR' | 'CASHIER',
+              role: mapMemberRoleToUserRole(memberData?.role, user.role),
               storeIds: memberData?.storeIds ?? [],
             }}
             onSubmit={handleSubmit}

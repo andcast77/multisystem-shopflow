@@ -17,6 +17,16 @@ export type StoreOption = {
   active: boolean
 }
 
+type RawStore = {
+  id: string
+  name: string
+  code: string
+  address?: string | null
+  phone?: string | null
+  email?: string | null
+  active?: boolean
+}
+
 type StoreContextValue = {
   stores: StoreOption[]
   isLoading: boolean
@@ -46,7 +56,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const stores = useMemo((): StoreOption[] => {
     if (!Array.isArray(storesData)) return []
-    return storesData.map((s: { id: string; name: string; code: string; address?: string | null; phone?: string | null; email?: string | null; active?: boolean }) => ({
+    return (storesData as RawStore[]).map((s) => ({
       id: s.id,
       name: s.name,
       code: s.code,
